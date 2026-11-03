@@ -96,3 +96,7 @@ Optional sharing attaches on VM startup or the configured mount appearing. An ab
 See [rollback](docs/rollback.md), [known fixes](docs/fixes.md), and [privacy](docs/privacy.md). Do not attach configs, BCD exports, VM XML, logs, recovery keys or disk images to issues without sanitizing them.
 
 The FreeRDP fixes are also maintained separately in [xizha127/FreeRDP, `winapps-wayland-resize`](https://github.com/xizha127/FreeRDP/tree/winapps-wayland-resize). This is an integration project, not an official release or endorsement from any upstream project.
+
+## Optional metadata candidate
+
+See [the isolated QEMU/firmware recipe](docs/concealment.md) for `./setup.sh concealment` build, stage, activation and rollback commands. It preserves the working Yttrium stack and does not promise anti-cheat compatibility.

@@ -53,20 +53,24 @@ def prepare(c,root):
  for r in sorted(rows,key=lambda r:len(r['target']),reverse=True):run(['umount','--',r['target']])
  guard(c,v(c,'dumpxml',c['domain'],'--inactive').stdout)
  for disk in c['physical_disks']:
-  data=json.loads(run(['lsblk','-J','-o','PATH,FSTYPE',disk]).stdout)
-  def probe(node):
-   if node.get('fstype')=='ntfs':run(['ntfs-3g.probe','--readwrite',node['path']])
-   for child in node.get('children',[]):probe(child)
-  for node in data['blockdevices']:probe(node)
+  # Windows owns/replays its NTFS journal. Do not require a Linux RW-mount
+  # probe or an ntfs-3g package on hosts using the kernel NTFS driver.
+  if run(['blockdev','--getro',disk]).stdout.strip()!='0':raise RuntimeError('Physical Windows disk is read-only')
 def restore(c,root):
  if state(c)!='shut off':raise RuntimeError('Refusing to remount while VM is active')
+ if run(['virsh','-c',c['uri'],'managedsave-dumpxml',c['domain']],False).returncode==0:
+  raise RuntimeError('Resume saved Windows memory and shut down fully before remounting')
  (root/'active').unlink(missing_ok=True)
  run(['udevadm','trigger','--subsystem-match=block','--action=change']);run(['udevadm','settle'])
  saved=root/'mounts.json'
  if saved.exists():
   for row in json.loads(saved.read_text()):
    if not row['target'].startswith(('/mnt/','/run/media/')):raise RuntimeError('Unexpected saved mount target')
-   if run(['mountpoint','-q',row['target']],False).returncode:run(['mount',row['target']])
+   if run(['mountpoint','-q',row['target']],False).returncode:
+    configured=run(['findmnt','--fstab','--target',row['target'],'--noheadings'],False).returncode==0
+    if not configured and row['target'].startswith('/run/media/'):
+     print('Leaving transient desktop mount unmounted (no fstab entry): '+row['target']);continue
+    run(['mount',row['target']])
   saved.unlink()
 def share(c,root):
  if not c.get('shared_directory') or state(c)!='running':return

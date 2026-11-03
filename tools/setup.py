@@ -147,7 +147,7 @@ def write(path,data,mode=0o644):
  tmp.write_text(data);tmp.chmod(mode);tmp.replace(path)
 
 def doctor(c):
- tools=['virsh','git','meson','ninja','cmake','pkg-config','vulkaninfo','lsblk','ntfs-3g.probe']
+ tools=['virsh','git','meson','ninja','cmake','pkg-config','vulkaninfo','lsblk','blockdev']
  for t in tools:print(('OK      ' if shutil.which(t) else 'MISSING ')+t)
  print('VM state:',virsh(c,'domstate',c['domain']).strip())
  for d in c['physical_disks']:print('Physical disk mounts:',json.dumps(runtime.mounts(d)))

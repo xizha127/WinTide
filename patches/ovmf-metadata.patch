@@ -1,0 +1,442 @@
+diff --git i/MdeModulePkg/MdeModulePkg.dec w/MdeModulePkg/MdeModulePkg.dec
+index f6b1a73..6358525 100644
+--- i/MdeModulePkg/MdeModulePkg.dec
++++ w/MdeModulePkg/MdeModulePkg.dec
+@@ -1943,7 +1943,7 @@
+ 
+   ## Null-terminated Unicode string of the firmware vendor name that is the default name filled into the EFI System Table.
+   # @Prompt Firmware vendor.
+-  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor|L"EDK II"|VOID*|0x00010050
++  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor|L"OEM"|VOID*|0x00010050
+ 
+   ## Firmware revision that is the default revision filled into the EFI System Table.
+   # @Prompt Firmware revision.
+diff --git i/OvmfPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf w/OvmfPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
+index d770c07..e27a116 100644
+--- i/OvmfPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
++++ w/OvmfPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
+@@ -8,7 +8,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgAcpiPlatform
++  BASE_NAME                      = OemFwCfgAcpiPlatform
+   FILE_GUID                      = 17985e6f-e778-4d94-aefa-c5dd2b77e186
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Fdt/VirtioFdtDxe/VirtioFdtDxe.inf w/OvmfPkg/Fdt/VirtioFdtDxe/VirtioFdtDxe.inf
+index dece5c8..ed4b1fb 100644
+--- i/OvmfPkg/Fdt/VirtioFdtDxe/VirtioFdtDxe.inf
++++ w/OvmfPkg/Fdt/VirtioFdtDxe/VirtioFdtDxe.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioFdtDxe
++  BASE_NAME                      = OemIoFdtDxe
+   FILE_GUID                      = 0049858F-8CA7-4CCD-918B-D952CBF32975
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/FdtNorFlashQemuLib/FdtNorFlashQemuLib.inf w/OvmfPkg/Library/FdtNorFlashQemuLib/FdtNorFlashQemuLib.inf
+index 14ddb4c..40c61eb 100644
+--- i/OvmfPkg/Library/FdtNorFlashQemuLib/FdtNorFlashQemuLib.inf
++++ w/OvmfPkg/Library/FdtNorFlashQemuLib/FdtNorFlashQemuLib.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.29
+-  BASE_NAME                      = NorFlashQemuLib
++  BASE_NAME                      = NorFlashOemLib
+   FILE_GUID                      = E225C90F-6CB9-8AF3-095B-2668FC633A57
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/GenericQemuLoadImageLib/GenericQemuLoadImageLib.inf w/OvmfPkg/Library/GenericQemuLoadImageLib/GenericQemuLoadImageLib.inf
+index 9c9e35b..37c2da8 100644
+--- i/OvmfPkg/Library/GenericQemuLoadImageLib/GenericQemuLoadImageLib.inf
++++ w/OvmfPkg/Library/GenericQemuLoadImageLib/GenericQemuLoadImageLib.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.27
+-  BASE_NAME                      = GenericQemuLoadImageLib
++  BASE_NAME                      = GenericOemLoadImageLib
+   FILE_GUID                      = 9e3e28da-c7b5-4f85-841a-84e6a9a1f1a0
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.inf w/OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.inf
+index 8797748..b2a8f3f 100644
+--- i/OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.inf
++++ w/OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuBootOrderLib
++  BASE_NAME                      = OemBootOrderLib
+   FILE_GUID                      = 1D677A58-C753-4AF1-B552-EFE142DF8F57
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgDxeLib.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgDxeLib.inf
+index 01d75a6..831db08 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgDxeLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgDxeLib.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgDxeLib
++  BASE_NAME                      = OemFwCfgDxeLib
+   FILE_GUID                      = 80474090-55e7-4c28-b25c-9f236ba41f28
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgLibNull.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgLibNull.inf
+index e5715a6..9d6cb23 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgLibNull.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgLibNull.inf
+@@ -13,7 +13,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgLibNull
++  BASE_NAME                      = OemFwCfgLibNull
+   FILE_GUID                      = B9D1A1F2-01E2-4732-982D-C7F9ED51AC6B
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioDxeLib.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioDxeLib.inf
+index f107ac1..1944d7e 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioDxeLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioDxeLib.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgLib
++  BASE_NAME                      = OemFwCfgLib
+   FILE_GUID                      = B271F41F-B841-48A9-BA8D-545B4BC2E2BF
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioPeiLib.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioPeiLib.inf
+index 5d6e45b..b6bb351 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioPeiLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgMmioPeiLib.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.29
+-  BASE_NAME                      = QemuFwCfgPeiLib
++  BASE_NAME                      = OemFwCfgPeiLib
+   FILE_GUID                      = CDF9A9D5-7422-4DCB-B41D-607151AD320B
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgPeiLib.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgPeiLib.inf
+index 7ecfa48..8277bec 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgPeiLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgPeiLib.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgPeiLib
++  BASE_NAME                      = OemFwCfgPeiLib
+   FILE_GUID                      = ddd4f5f0-5304-42a8-9efa-d14bf11a3533
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgSecLib.inf w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgSecLib.inf
+index 587fe3e..ea1cf05 100644
+--- i/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgSecLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgSecLib.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuFwCfgSecLib
++  BASE_NAME                      = OemFwCfgSecLib
+   FILE_GUID                      = 60a910e5-7443-413d-9a30-97e57497cd1b
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgS3Lib/BaseQemuFwCfgS3LibNull.inf w/OvmfPkg/Library/QemuFwCfgS3Lib/BaseQemuFwCfgS3LibNull.inf
+index 194bff9..9e6ddc6 100644
+--- i/OvmfPkg/Library/QemuFwCfgS3Lib/BaseQemuFwCfgS3LibNull.inf
++++ w/OvmfPkg/Library/QemuFwCfgS3Lib/BaseQemuFwCfgS3LibNull.inf
+@@ -13,7 +13,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.25
+-  BASE_NAME                      = BaseQemuFwCfgS3LibNull
++  BASE_NAME                      = BaseOemFwCfgS3LibNull
+   FILE_GUID                      = EA7D2B69-D221-4950-9C2C-C38A65BCC96E
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgS3Lib/DxeQemuFwCfgS3LibFwCfg.inf w/OvmfPkg/Library/QemuFwCfgS3Lib/DxeQemuFwCfgS3LibFwCfg.inf
+index 655e630..0e7d2a7 100644
+--- i/OvmfPkg/Library/QemuFwCfgS3Lib/DxeQemuFwCfgS3LibFwCfg.inf
++++ w/OvmfPkg/Library/QemuFwCfgS3Lib/DxeQemuFwCfgS3LibFwCfg.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.25
+-  BASE_NAME                      = DxeQemuFwCfgS3LibFwCfg
++  BASE_NAME                      = DxeOemFwCfgS3LibFwCfg
+   FILE_GUID                      = C5DE76EB-E8DE-4057-A487-C5A09AB039AB
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgS3Lib/PeiQemuFwCfgS3LibFwCfg.inf w/OvmfPkg/Library/QemuFwCfgS3Lib/PeiQemuFwCfgS3LibFwCfg.inf
+index 2c531f2..8ad6f5f 100644
+--- i/OvmfPkg/Library/QemuFwCfgS3Lib/PeiQemuFwCfgS3LibFwCfg.inf
++++ w/OvmfPkg/Library/QemuFwCfgS3Lib/PeiQemuFwCfgS3LibFwCfg.inf
+@@ -12,7 +12,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.25
+-  BASE_NAME                      = PeiQemuFwCfgS3LibFwCfg
++  BASE_NAME                      = PeiOemFwCfgS3LibFwCfg
+   FILE_GUID                      = DD8D28B4-C1DC-4CAF-BB93-074BE80DAE6D
+   MODULE_TYPE                    = PEIM
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/QemuFwCfgSimpleParserLib/QemuFwCfgSimpleParserLib.inf w/OvmfPkg/Library/QemuFwCfgSimpleParserLib/QemuFwCfgSimpleParserLib.inf
+index c0e6ab3..edeca59 100644
+--- i/OvmfPkg/Library/QemuFwCfgSimpleParserLib/QemuFwCfgSimpleParserLib.inf
++++ w/OvmfPkg/Library/QemuFwCfgSimpleParserLib/QemuFwCfgSimpleParserLib.inf
+@@ -8,7 +8,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.29
+-  BASE_NAME                      = QemuFwCfgSimpleParserLib
++  BASE_NAME                      = OemFwCfgSimpleParserLib
+   FILE_GUID                      = a9a1211d-061e-4b64-af30-5dd0cac9dc99
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/SmmCpuPlatformHookLibQemu/SmmCpuPlatformHookLibQemu.inf w/OvmfPkg/Library/SmmCpuPlatformHookLibQemu/SmmCpuPlatformHookLibQemu.inf
+index af727ef..5641ff3 100644
+--- i/OvmfPkg/Library/SmmCpuPlatformHookLibQemu/SmmCpuPlatformHookLibQemu.inf
++++ w/OvmfPkg/Library/SmmCpuPlatformHookLibQemu/SmmCpuPlatformHookLibQemu.inf
+@@ -8,7 +8,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.29
+-  BASE_NAME                      = SmmCpuPlatformHookLibQemu
++  BASE_NAME                      = SmmCpuPlatformHookLibOem
+   FILE_GUID                      = 154D6D26-54B8-45BC-BA3A-CBAA20C02A6A
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/VirtioLib/VirtioLib.inf w/OvmfPkg/Library/VirtioLib/VirtioLib.inf
+index 6791f64..53ace72 100644
+--- i/OvmfPkg/Library/VirtioLib/VirtioLib.inf
++++ w/OvmfPkg/Library/VirtioLib/VirtioLib.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioLib
++  BASE_NAME                      = OemIoLib
+   FILE_GUID                      = 90CED1D9-18F2-47CC-BF24-41EC29406637
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf w/OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
+index 0736f89..1aa93f4 100644
+--- i/OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
++++ w/OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010006
+-  BASE_NAME                      = VirtioMmioDeviceLib
++  BASE_NAME                      = OemIoMmioDeviceLib
+   FILE_GUID                      = 3b6ed966-b5d1-46a8-965b-867ff22d9c89
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/VirtioMmioProbeLib/VirtioMmioProbeLib.inf w/OvmfPkg/Library/VirtioMmioProbeLib/VirtioMmioProbeLib.inf
+index 013f0e5..61027dc 100644
+--- i/OvmfPkg/Library/VirtioMmioProbeLib/VirtioMmioProbeLib.inf
++++ w/OvmfPkg/Library/VirtioMmioProbeLib/VirtioMmioProbeLib.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x0001001C
+-  BASE_NAME                      = VirtioMmioProbeLib
++  BASE_NAME                      = OemIoMmioProbeLib
+   FILE_GUID                      = 4e2e15be-b53e-4a8f-acf9-98b2204a38b7
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Library/X86QemuLoadImageLib/X86QemuLoadImageLib.inf w/OvmfPkg/Library/X86QemuLoadImageLib/X86QemuLoadImageLib.inf
+index 127674a..1087fb0 100644
+--- i/OvmfPkg/Library/X86QemuLoadImageLib/X86QemuLoadImageLib.inf
++++ w/OvmfPkg/Library/X86QemuLoadImageLib/X86QemuLoadImageLib.inf
+@@ -13,7 +13,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.27
+-  BASE_NAME                      = X86QemuLoadImageLib
++  BASE_NAME                      = X86OemLoadImageLib
+   FILE_GUID                      = 2304df80-e21d-4170-9c3c-113c878f7ac0
+   MODULE_TYPE                    = BASE
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf w/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
+index d24bd17..7bd1f99 100644
+--- i/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
++++ w/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.27
+-  BASE_NAME                      = QemuKernelLoaderFsDxe
++  BASE_NAME                      = OemKernelLoaderFsDxe
+   FILE_GUID                      = 806040ca-dad9-4978-a3b4-2d2ab0c8a48f
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf w/OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf
+index e3890b8..ae6638e 100644
+--- i/OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf
++++ w/OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuRamfbDxe
++  BASE_NAME                      = OemRamfbDxe
+   FILE_GUID                      = dce1b094-7dc6-45d0-9fdd-d7fc3cc3e4ef
+   MODULE_TYPE                    = DXE_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf w/OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf
+index 9bca56e..0f68664 100644
+--- i/OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf
++++ w/OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = QemuVideoDxe
++  BASE_NAME                      = OemVideoDxe
+   FILE_GUID                      = e3752948-b9a1-4770-90c4-df41c38986be
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/Virtio10Dxe/Virtio10.inf w/OvmfPkg/Virtio10Dxe/Virtio10.inf
+index b9ab6c0..1fdf22c 100644
+--- i/OvmfPkg/Virtio10Dxe/Virtio10.inf
++++ w/OvmfPkg/Virtio10Dxe/Virtio10.inf
+@@ -8,7 +8,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = Virtio10
++  BASE_NAME                      = OemIo10
+   FILE_GUID                      = 0170F60C-1D40-4651-956D-F0BD9879D527
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioBlkDxe/VirtioBlk.inf w/OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
+index fc639cb..721cda4 100644
+--- i/OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
++++ w/OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioBlkDxe
++  BASE_NAME                      = OemIoBlkDxe
+   FILE_GUID                      = 11D92DFB-3CA9-4F93-BA2E-4780ED3E03B5
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf w/OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
+index 8d962bc..cdb5fbf 100644
+--- i/OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
++++ w/OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
+@@ -71,7 +71,7 @@
+ 
+ [Defines]
+   INF_VERSION                           = 1.29
+-  BASE_NAME                             = VirtioFsDxe
++  BASE_NAME                             = OemIoFsDxe
+   FILE_GUID                             = 7BD9DDF7-8B83-488E-AEC9-24C78610289C
+   MODULE_TYPE                           = UEFI_DRIVER
+   ENTRY_POINT                           = VirtioFsEntryPoint
+diff --git i/OvmfPkg/VirtioGpuDxe/VirtioGpu.inf w/OvmfPkg/VirtioGpuDxe/VirtioGpu.inf
+index 7e929fd..2a0e3a9 100644
+--- i/OvmfPkg/VirtioGpuDxe/VirtioGpu.inf
++++ w/OvmfPkg/VirtioGpuDxe/VirtioGpu.inf
+@@ -11,7 +11,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioGpuDxe
++  BASE_NAME                      = OemIoGpuDxe
+   FILE_GUID                      = D6099B94-CD97-4CC5-8714-7F6312701A8A
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioInputDxe/VirtioInput.inf w/OvmfPkg/VirtioInputDxe/VirtioInput.inf
+index 4a20f60..fa1d8dc 100644
+--- i/OvmfPkg/VirtioInputDxe/VirtioInput.inf
++++ w/OvmfPkg/VirtioInputDxe/VirtioInput.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 1.29
+-  BASE_NAME                      = VirtioInputDxe
++  BASE_NAME                      = OemIoInputDxe
+   FILE_GUID                      = F141B1E5-9C7C-44CC-AFAA-E87D7689B113
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioNetDxe/VirtioNet.inf w/OvmfPkg/VirtioNetDxe/VirtioNet.inf
+index ada84ed..8b32b46 100644
+--- i/OvmfPkg/VirtioNetDxe/VirtioNet.inf
++++ w/OvmfPkg/VirtioNetDxe/VirtioNet.inf
+@@ -11,7 +11,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioNetDxe
++  BASE_NAME                      = OemIoNetDxe
+   FILE_GUID                      = A92CDB4B-82F1-4E0B-A516-8A655D371524
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf w/OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
+index be5f2aa..99ee6ff 100644
+--- i/OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
++++ w/OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010006
+-  BASE_NAME                      = VirtioPciDeviceDxe
++  BASE_NAME                      = OemIoPciDeviceDxe
+   FILE_GUID                      = 83dd3b39-7caf-4fac-a542-e050b767e3a7
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioRngDxe/VirtioRng.inf w/OvmfPkg/VirtioRngDxe/VirtioRng.inf
+index 7f5fcc9..79cfcd0 100644
+--- i/OvmfPkg/VirtioRngDxe/VirtioRng.inf
++++ w/OvmfPkg/VirtioRngDxe/VirtioRng.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioRngDxe
++  BASE_NAME                      = OemIoRngDxe
+   FILE_GUID                      = 58E26F0D-CBAC-4BBA-B70F-18221415665A
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioScsiDxe/VirtioScsi.inf w/OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
+index d19cc0d..9caa847 100644
+--- i/OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
++++ w/OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
+@@ -10,7 +10,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioScsiDxe
++  BASE_NAME                      = OemIoScsiDxe
+   FILE_GUID                      = FAB5D4F4-83C0-4AAF-8480-442D11DF6CEA
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0
+diff --git i/OvmfPkg/VirtioSerialDxe/VirtioSerial.inf w/OvmfPkg/VirtioSerialDxe/VirtioSerial.inf
+index d63a08b..af699f5 100644
+--- i/OvmfPkg/VirtioSerialDxe/VirtioSerial.inf
++++ w/OvmfPkg/VirtioSerialDxe/VirtioSerial.inf
+@@ -9,7 +9,7 @@
+ 
+ [Defines]
+   INF_VERSION                    = 0x00010005
+-  BASE_NAME                      = VirtioSerialDxe
++  BASE_NAME                      = OemIoSerialDxe
+   FILE_GUID                      = 23CACE14-EBA4-49F6-9681-C697FF0B649E
+   MODULE_TYPE                    = UEFI_DRIVER
+   VERSION_STRING                 = 1.0

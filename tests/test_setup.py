@@ -6,6 +6,27 @@ import setup,runtime
 XML='''<domain type="kvm"><name>testvm</name><cpu mode="custom"><model>Skylake-Client-IBRS</model></cpu><devices><emulator>/usr/bin/qemu-system-x86_64</emulator><disk type="block"><source dev="/dev/example"/></disk><graphics type="spice"/><video><model type="qxl"/></video><channel type="spicevmc"/><interface type="network"><source network="default"/></interface></devices></domain>'''
 C={'domain':'testvm','prefix':'/opt/test','uid':1000,'gid':1000,'tpm_gid':973,'home':'/example','hostmem_bytes':4294967296,'display':':0','wayland_display':'wayland-1','physical_disks':[],'uri':'qemu:///system','shared_directory':'/mnt/test','shared_uuid':'expected','share_tag':'host-games','share_letter':'H'}
 class SetupTests(unittest.TestCase):
+ def test_restore_saved_memory_refuses_before_touching_mounts(self):
+  with patch.object(runtime,'state',return_value='shut off'),patch.object(runtime,'run',return_value=subprocess.CompletedProcess([],0,'','')):
+   with self.assertRaisesRegex(RuntimeError,'saved Windows memory'):runtime.restore(C,pathlib.Path('/missing'))
+ def test_restore_skips_unconfigured_desktop_mounts(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);(root/'mounts.json').write_text(json.dumps([{'source':'/dev/example1','target':'/run/media/user/example'}]))
+   calls=[]
+   def command(args,check=True,timeout=20):
+    calls.append(args);return subprocess.CompletedProcess(args,1 if args[0] in ['virsh','mountpoint','findmnt'] else 0,'','')
+   with patch.object(runtime,'state',return_value='shut off'),patch.object(runtime,'run',side_effect=command):runtime.restore(C,root)
+   self.assertFalse(any(args[0]=='mount' for args in calls))
+   self.assertFalse((root/'mounts.json').exists())
+ def test_prepare_refuses_readonly_raw_disks_without_ntfs_mount_probe(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   calls=[]
+   def command(args,check=True,timeout=20):
+    calls.append(args);return subprocess.CompletedProcess(args,0,'1\n' if args[0]=='blockdev' else '','')
+   c={**C,'physical_disks':['/dev/disk/by-id/example']}
+   with patch.object(runtime,'state',return_value='shut off'),patch.object(runtime,'mounts',return_value=[]),patch.object(runtime,'guard'),patch.object(runtime,'v',return_value=subprocess.CompletedProcess([],0,XML,'')),patch.object(runtime,'run',side_effect=command):
+    with self.assertRaisesRegex(RuntimeError,'read-only'):runtime.prepare(c,pathlib.Path(tmp))
+   self.assertFalse(any(args[0]=='ntfs-3g.probe' for args in calls))
  def test_transform_preserves_boot_cpu_storage_network(self):
   root=setup.ET.fromstring(setup.transform(XML,C,pathlib.Path('/etc/example')))
   self.assertEqual(root.find('cpu/model').text,'Skylake-Client-IBRS')
