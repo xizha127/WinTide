@@ -85,6 +85,7 @@ def share(c,root):
  guest_ps(c,"Start-Service VirtioFsSvc -ErrorAction Stop; if (!(Test-Path "+c['share_letter']+":\\)) { exit 1 }")
 def main():
  config=pathlib.Path(sys.argv[1]);c=json.loads(config.read_text());mode=sys.argv[2];args=sys.argv[3:];root=config.parent
+ transient=pathlib.Path('/run/winapps-yttrium')/c['domain']
  if mode=='qemu':
   for i,a in enumerate(args[:-1]):
    if a=='-accel' and args[i+1].split(',')[0]=='kvm' and c.get('honor_guest_pat') and 'honor-guest-pat=' not in args[i+1]:args[i+1]+=',honor-guest-pat=on'
@@ -95,7 +96,7 @@ def main():
   if args[:3]==[c['domain'],'started','begin'] and c.get('shared_directory'):
    run(['systemctl','start','--no-block',c['service']])
  elif mode=='automount':
-  if (root/'active').exists():
+  if (transient/'active').exists():
    node=pathlib.Path(args[0]);parent=run(['lsblk','-ndo','PKNAME',str(node)],False).stdout.strip()
    actual=str(pathlib.Path('/dev',parent).resolve()) if parent else str(node.resolve())
    if actual in [str(pathlib.Path(p).resolve()) for p in c['physical_disks']]:print('ignore')
@@ -103,7 +104,7 @@ def main():
   s=state(c)
   if s=='running':return
   if s!='shut off':raise RuntimeError('VM must be running or shut off')
-  prepare(c,root);v(c,'start',c['domain'])
+  prepare(c,transient);v(c,'start',c['domain'])
  elif mode=='stop':
   if state(c)!='shut off':
    v(c,'shutdown',c['domain'])
@@ -111,9 +112,9 @@ def main():
     if state(c)=='shut off':break
     time.sleep(1)
    else:raise RuntimeError('Windows did not shut down; no force-stop or remount performed')
-  restore(c,root)
+  restore(c,transient)
  elif mode=='share':share(c,root)
- elif mode=='restore-mounts':restore(c,root)
+ elif mode=='restore-mounts':restore(c,transient)
  else:raise RuntimeError('Unknown runtime operation')
 if __name__=='__main__':
  try:main()
