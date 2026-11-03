@@ -62,11 +62,11 @@ def build(c,jobs):
  if os.getuid()!=c['uid']:raise RuntimeError('Run build as configured desktop_user')
  work=pathlib.Path(c['work_dir']);prefix=c['prefix'];work.mkdir(parents=True,exist_ok=True)
  sources={}
- for n in ['renderer','qemu','freerdp','winapps']:
+ for n in ['renderer','qemu','freerdp','winapps']+(['virtiofsd'] if c.get('shared_directory') and c.get('share_permission_guard',True) else []):
   # Re-running a patched checkout is allowed only when its diff equals our patch.
   d=work/'sources'/n
   if d.exists() and run('git','status','--porcelain',cwd=d).stdout:
-   p={'renderer':'renderer-libvirt-seccomp.patch','freerdp':'freerdp-sdl-resize.patch'}.get(n)
+   p={'renderer':'renderer-libvirt-seccomp.patch','freerdp':'freerdp-sdl-resize.patch','virtiofsd':'virtiofsd-preserve-host-permissions.patch'}.get(n)
    if not p or run('git','apply','--reverse','--check',str(ROOT/'patches'/p),cwd=d,check=False).returncode:
     raise RuntimeError('Unreviewed source modifications: '+str(d))
    # Verify there are no changes beyond the expected patch using a temporary index.
@@ -89,6 +89,14 @@ def build(c,jobs):
  f=b/'freerdp';fp=prefix+'/freerdp'
  show_run('cmake','-S',str(sources['freerdp']),'-B',str(f),'-G','Ninja',f'-DCMAKE_INSTALL_PREFIX={fp}','-DCMAKE_BUILD_TYPE=RelWithDebInfo','-DWITH_CLIENT_SDL=ON','-DWITH_CLIENT_SDL3=ON','-DWITH_CLIENT_SDL2=OFF','-DWITH_CLIENT_SDL_VERSIONED=OFF','-DWITH_BINARY_VERSIONING=OFF','-DWITH_SERVER=OFF','-DWITH_FFMPEG=OFF','-DWITH_SWSCALE=OFF','-DWITH_AAD=OFF','-DWITH_OPENH264=OFF','-DWITH_AOM=OFF','-DWITH_DAV1D=OFF','-DBUILD_TESTING=OFF','-DWITH_WAYLAND=ON','-DWITH_X11=ON')
  show_run('cmake','--build',str(f),'--parallel',str(jobs));show_run('cmake','--install',str(f))
+ if 'virtiofsd' in sources:
+  patch(sources['virtiofsd'],'virtiofsd-preserve-host-permissions.patch')
+  target=b/'virtiofsd'
+  cargo_env={**os.environ,'CARGO_TARGET_DIR':str(target)}
+  show_run('cargo','test','--locked','--lib',cwd=sources['virtiofsd'],env=cargo_env)
+  show_run('cargo','build','--release','--locked',cwd=sources['virtiofsd'],env=cargo_env)
+  binary=pathlib.Path(prefix)/'libexec/virtiofsd-guard-bin';binary.parent.mkdir(parents=True,exist_ok=True)
+  shutil.copy2(target/'release/virtiofsd',binary)
  print('Pinned host stack and patched SDL client installed:',prefix)
 
 def transform(xml,c,base):
@@ -130,7 +138,7 @@ def gpu_acl(text,nodes):
 
 def share_xml(c):
  f=ET.Element('filesystem',{'type':'mount','accessmode':'passthrough'})
- ET.SubElement(f,'driver',{'type':'virtiofs','queue':'1024'});ET.SubElement(f,'binary',{'path':'/usr/lib/virtiofsd','xattr':'on'})
+ ET.SubElement(f,'driver',{'type':'virtiofs','queue':'1024'});ET.SubElement(f,'binary',{'path':c.get('virtiofsd_binary','/usr/lib/virtiofsd'),'xattr':'on'})
  ET.SubElement(f,'source',{'dir':c['shared_directory']});ET.SubElement(f,'target',{'dir':c['share_tag']})
  ET.indent(f);return ET.tostring(f,encoding='unicode')
 
@@ -150,6 +158,8 @@ def doctor(c):
 def plan(c,out):
  import grp
  c['tpm_gid']=__import__('grp').getgrnam('tss').gr_gid
+ if c.get('shared_directory') and c.get('share_permission_guard',True):
+  c['virtiofsd_binary']='/etc/winapps-yttrium/'+c['domain']+'/virtiofsd-guard'
  base=pathlib.Path('/etc/winapps-yttrium')/c['domain']
  xml=virsh(c,'dumpxml',c['domain'],'--inactive')
  # A raw Windows disk must never be the disk holding host root/boot/home.
@@ -174,6 +184,8 @@ def apply_host(c,out):
  c=plan(c,out);runtime.guard(c,(out/'domain.before.xml').read_text())
  for p in ['bin/qemu-system-x86_64','lib/libvirglrenderer.so.1','libexec/virgl_render_server']:
   if not (pathlib.Path(c['prefix'])/p).exists():raise RuntimeError('Build missing: '+p)
+ if c.get('shared_directory') and c.get('share_permission_guard',True) and not (pathlib.Path(c['prefix'])/'libexec/virtiofsd-guard-bin').exists():
+  raise RuntimeError('Build the permission-guard backend before host installation')
  for p in c['gpu_nodes']:
   if not pathlib.Path(p).exists() or not stat.S_ISCHR(os.stat(p).st_mode):raise RuntimeError('Invalid GPU character device: '+p)
  # Verify effective access rather than chmodding globally or changing host GPU binding.
@@ -191,6 +203,11 @@ def apply_host(c,out):
  rule=pathlib.Path('/etc/udev/rules.d')/('90-winapps-yttrium-'+c['domain']+'.rules')
  write(rule,'SUBSYSTEM=="block", PROGRAM="/usr/bin/python3 '+str(base/'runtime.py')+' '+str(base/'config.json')+' automount %N", RESULT=="ignore", ENV{UDISKS_IGNORE}="1"\n')
  if c.get('shared_directory'):
+  if c.get('share_permission_guard',True):
+   guarded=pathlib.Path(c['prefix'])/'libexec/virtiofsd-guard-bin'
+   if not guarded.exists():raise RuntimeError('Build the permission-guard backend first')
+   shutil.copy2(guarded,base/'virtiofsd-guard-bin')
+   write(base/'virtiofsd-guard','#!/bin/sh\nexec '+shlex.quote(str(base/'virtiofsd-guard-bin'))+' --preserve-host-permissions "$@"\n',0o755)
   write(base/'share.xml',share_xml(c))
   unit='[Unit]\nDescription=Optional Windows VirtioFS share\nAfter=virtqemud.service\n\n[Service]\nType=oneshot\nEnvironment=LC_ALL=C\nExecStart=/usr/bin/python3 '+str(base/'runtime.py')+' '+str(base/'config.json')+' share\nTimeoutStartSec=240\n'
   write('/etc/systemd/system/'+c['service'],unit)

@@ -22,5 +22,10 @@
     "url": "https://github.com/arehnman/yttrium-virtio-gpu/releases/download/yttrium-experimental-2026-11-02/yttrium-viogpu3d-experimental-2026-11-02.zip",
     "sha256": "d740f749215de5eb15f055b0f2238c4800b2385960dda450521b9577b35ddc87",
     "release": "yttrium-experimental-2026-11-02"
+  },
+  "virtiofsd": {
+    "url": "https://gitlab.com/virtio-fs/virtiofsd.git",
+    "commit": "c2540f8db14caba81c1e37fba23fc7bf2cd7f0dd",
+    "version": "1.14.0"
   }
 }

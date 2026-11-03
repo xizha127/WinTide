@@ -76,3 +76,11 @@ class ClientTests(unittest.TestCase):
    self.assertEqual(result.stdout,'C:\\Windows\\System32\\wscript.exe')
    desktop=next((home/'.local/share/applications').glob('*.desktop')).read_text()
    self.assertIn('explorer-broker.vbs',desktop)
+
+class PermissionGuardTests(unittest.TestCase):
+ def test_guarded_backend_is_selected_without_changing_source_or_tag(self):
+  c={**C,'virtiofsd_binary':'/etc/example/virtiofsd-guard'}
+  root=setup.ET.fromstring(setup.share_xml(c))
+  self.assertEqual(root.find('binary').get('path'),c['virtiofsd_binary'])
+  self.assertEqual(root.find('source').get('dir'),C['shared_directory'])
+  self.assertEqual(root.find('target').get('dir'),C['share_tag'])

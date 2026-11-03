@@ -1,0 +1,224 @@
+diff --git i/src/main.rs w/src/main.rs
+index e92a742..dcedb56 100644
+--- i/src/main.rs
++++ w/src/main.rs
+@@ -174,6 +174,10 @@ struct Opt {
+     #[arg(long, default_value = "namespace")]
+     sandbox: SandboxMode,
+ 
++    /// Keep host modes/ownership unchanged; ignore guest chmod/chown and reject ACL writes.
++    #[arg(long)]
++    preserve_host_permissions: bool,
++
+     /// Prevent the guest from making modifications to the filesystem.
+     #[arg(long)]
+     readonly: bool,
+@@ -842,6 +846,7 @@ fn main() {
+         entry_timeout: timeout,
+         attr_timeout: timeout,
+         cache_policy: opt.cache,
++        preserve_host_permissions: opt.preserve_host_permissions,
+         root_dir: sandbox.get_root_dir(),
+         mountinfo_prefix,
+         xattr,
+diff --git i/src/passthrough/mod.rs w/src/passthrough/mod.rs
+index 6031227..db62e20 100644
+--- i/src/passthrough/mod.rs
++++ w/src/passthrough/mod.rs
+@@ -267,6 +267,8 @@ impl FromStr for MigrationMode {
+ /// Options that configure the behavior of the file system.
+ #[derive(Debug)]
+ pub struct Config {
++    /// Opt-in Windows share policy: retain host permission modes and ownership.
++    pub preserve_host_permissions: bool,
+     /// How long the FUSE client should consider directory entries to be valid. If the contents of a
+     /// directory can only be modified by the FUSE client (i.e., the file system has exclusive
+     /// access), then this should be a large value.
+@@ -454,6 +456,7 @@ pub struct Config {
+ impl Default for Config {
+     fn default() -> Self {
+         Config {
++            preserve_host_permissions: false,
+             entry_timeout: Duration::from_secs(5),
+             attr_timeout: Duration::from_secs(5),
+             cache_policy: Default::default(),
+@@ -1231,6 +1234,11 @@ impl PassthroughFs {
+         umask: u32,
+         extensions: Extensions,
+     ) -> io::Result<RawFd> {
++        let mode = if self.cfg.preserve_host_permissions {
++            mode | 0o600
++        } else {
++            mode
++        };
+         let fd = {
+             let _credentials_guard = self.unix_credentials_guard(ctx, &extensions)?;
+             let _umask_guard = self
+@@ -1716,6 +1724,11 @@ impl FileSystem for PassthroughFs {
+         umask: u32,
+         extensions: Extensions,
+     ) -> io::Result<Entry> {
++        let mode = if self.cfg.preserve_host_permissions {
++            mode | 0o700
++        } else {
++            mode
++        };
+         let data = self.inodes.get(parent).ok_or_else(ebadf)?;
+         let parent_file = data.get_file()?;
+ 
+@@ -1961,6 +1974,12 @@ impl FileSystem for PassthroughFs {
+         handle: Option<Handle>,
+         valid: SetattrValid,
+     ) -> io::Result<(fuse::Attr, Duration)> {
++        // Ignore only permission/ownership attributes, preserving size/time updates.
++        let valid = if self.cfg.preserve_host_permissions {
++            valid & !(SetattrValid::MODE | SetattrValid::UID | SetattrValid::GID)
++        } else {
++            valid
++        };
+         let inode_data = self.inodes.get(inode).ok_or_else(ebadf)?;
+         let file_type = FileType::from_mode(inode_data.mode);
+ 
+@@ -2163,6 +2182,15 @@ impl FileSystem for PassthroughFs {
+         umask: u32,
+         extensions: Extensions,
+     ) -> io::Result<Entry> {
++        let mode = if self.cfg.preserve_host_permissions {
++            mode | (if mode & libc::S_IFMT == libc::S_IFDIR {
++                0o700
++            } else {
++                0o600
++            })
++        } else {
++            mode
++        };
+         let data = self.inodes.get(parent).ok_or_else(ebadf)?;
+         let parent_file = data.get_file()?;
+ 
+@@ -2425,6 +2453,17 @@ impl FileSystem for PassthroughFs {
+         flags: u32,
+         extra_flags: SetxattrFlags,
+     ) -> io::Result<()> {
++        if self.cfg.preserve_host_permissions
++            && matches!(
++                name.to_bytes(),
++                b"system.posix_acl_access"
++                    | b"system.posix_acl_default"
++                    | b"security.NTACL"
++                    | b"security.capability"
++            )
++        {
++            return Err(io::Error::from_raw_os_error(libc::EPERM));
++        }
+         if !self.cfg.xattr {
+             return Err(io::Error::from_raw_os_error(libc::ENOSYS));
+         }
+@@ -2615,6 +2654,17 @@ impl FileSystem for PassthroughFs {
+     }
+ 
+     fn removexattr(&self, _ctx: Context, inode: Inode, name: &CStr) -> io::Result<()> {
++        if self.cfg.preserve_host_permissions
++            && matches!(
++                name.to_bytes(),
++                b"system.posix_acl_access"
++                    | b"system.posix_acl_default"
++                    | b"security.NTACL"
++                    | b"security.capability"
++            )
++        {
++            return Err(io::Error::from_raw_os_error(libc::EPERM));
++        }
+         if !self.cfg.xattr {
+             return Err(io::Error::from_raw_os_error(libc::ENOSYS));
+         }
+@@ -2776,6 +2826,90 @@ impl From<GuestFile> for HandleDataFile {
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn permission_guard_retains_host_mode_owner_and_allows_truncate() {
++        use std::os::unix::fs::{MetadataExt, PermissionsExt};
++        let root = std::env::temp_dir().join(format!("virtiofsd-guard-{}", std::process::id()));
++        std::fs::create_dir(&root).unwrap();
++        let path = root.join("existing");
++        std::fs::write(&path, b"abcdef").unwrap();
++        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
++        let original = std::fs::metadata(&path).unwrap();
++        let fs = PassthroughFs::new(Config {
++            root_dir: root.to_str().unwrap().into(),
++            preserve_host_permissions: true,
++            inode_file_handles: InodeFileHandlesMode::Never,
++            ..Default::default()
++        })
++        .unwrap();
++        fs.init(FsOptions::empty()).unwrap();
++        let ctx = Context {
++            uid: original.uid().into(),
++            gid: original.gid().into(),
++            pid: std::process::id() as i32,
++        };
++        let name = CStr::from_bytes_with_nul(b"existing\0").unwrap();
++        let entry = fs.lookup(ctx, fuse::ROOT_ID, name).unwrap();
++        let requested = fuse::SetattrIn {
++            mode: 0,
++            uid: 12345u32.into(),
++            gid: 12345u32.into(),
++            size: 3,
++            ..Default::default()
++        };
++        fs.setattr(
++            ctx,
++            entry.inode,
++            requested,
++            None,
++            SetattrValid::MODE | SetattrValid::UID | SetattrValid::GID | SetattrValid::SIZE,
++        )
++        .unwrap();
++        let after = std::fs::metadata(&path).unwrap();
++        assert_eq!(after.mode() & 0o7777, 0o640);
++        assert_eq!(after.uid(), original.uid());
++        assert_eq!(after.gid(), original.gid());
++        assert_eq!(std::fs::read(&path).unwrap(), b"abc");
++        let acl = CStr::from_bytes_with_nul(b"system.posix_acl_access\0").unwrap();
++        assert_eq!(
++            fs.setxattr(ctx, entry.inode, acl, b"", 0, SetxattrFlags::empty())
++                .unwrap_err()
++                .raw_os_error(),
++            Some(libc::EPERM)
++        );
++        assert_eq!(
++            fs.removexattr(ctx, entry.inode, acl)
++                .unwrap_err()
++                .raw_os_error(),
++            Some(libc::EPERM)
++        );
++        let new_name = CStr::from_bytes_with_nul(b"new\0").unwrap();
++        fs.create(
++            ctx,
++            fuse::ROOT_ID,
++            new_name,
++            0,
++            false,
++            libc::O_RDWR as u32,
++            0,
++            Extensions::default(),
++        )
++        .unwrap();
++        assert_eq!(
++            std::fs::metadata(root.join("new")).unwrap().mode() & 0o600,
++            0o600
++        );
++        let dir_name = CStr::from_bytes_with_nul(b"directory\0").unwrap();
++        fs.mkdir(ctx, fuse::ROOT_ID, dir_name, 0, 0, Extensions::default())
++            .unwrap();
++        assert_eq!(
++            std::fs::metadata(root.join("directory")).unwrap().mode() & 0o700,
++            0o700
++        );
++        drop(fs);
++        std::fs::remove_dir_all(&root).unwrap();
++    }
++
+     use super::*;
+ 
+     #[test]

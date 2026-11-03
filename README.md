@@ -4,7 +4,7 @@ Run an existing Windows installation under Linux, expose Windows apps in the Lin
 
 This repository assembles other people's substantial work. **Yttrium by [arehnman](https://github.com/arehnman) provides the shared GPU stack; [WinApps](https://github.com/winapps-org/winapps) and [FreeRDP](https://github.com/FreeRDP/FreeRDP) provide the application integration.** See [all credits and licenses](THIRD_PARTY.md).
 
-It includes the known-working source pins, two SDL/Wayland resize fixes, a small libvirt renderer compatibility patch, a setup script, physical-disk mount protection, guest configuration, optional drive sharing, and a Direct3D hardware smoke test. Upstream sources and Windows binaries are fetched from their projects, not republished here.
+It includes the known-working source pins, two SDL/Wayland resize fixes, a small libvirt renderer compatibility patch, a shared-drive permission safeguard, a setup script, physical-disk mount protection, guest configuration, optional drive sharing, and a Direct3D hardware smoke test. Upstream sources and Windows binaries are fetched from their projects, not republished here.
 
 ## What has actually worked
 

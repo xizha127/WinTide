@@ -5,7 +5,7 @@ The tested automated path is Arch/CachyOS, x86-64 KVM, system libvirt with syste
 Suggested Arch packages (review availability on your distribution):
 
 ```sh
-sudo pacman -S --needed base-devel git python meson ninja cmake pkgconf \
+sudo pacman -S --needed base-devel git python meson ninja cmake pkgconf rustup libcap-ng libseccomp \
   libvirt virt-manager qemu-full edk2-ovmf swtpm virtiofsd ntfs-3g dosfstools libdrm pixman \
   gtk3 libepoxy spice spice-protocol libslirp libpulse \
   vulkan-tools vulkan-headers vulkan-icd-loader \
@@ -20,3 +20,5 @@ Start/configure libvirt's default NAT network and ensure the Windows VM can reac
 Secure Boot must be disabled **for the VM** before test-signing. Use a private VM EFI image/BCD store for physical Windows, as described in physical-disk.md. QEMU Guest Agent must already be installed in Windows and connected through `org.qemu.guest_agent.0`; the initial base VM needs this channel too.
 
 The native build uses host shared libraries, so source pins are reproducible while a byte-for-byte build is not guaranteed across distro library updates. Record package versions locally when reproducing a failure. The pinned working reference used SPICE protocol 0.14.5/server 0.16.0 and NVIDIA 615.78.08; these are evidence, not minimum-version guarantees.
+
+Optional guarded VirtioFS builds require a configured Rust toolchain (`rustup default stable` if none is installed) and the pinned Cargo.lock dependencies. The source pin is in components.lock.json.
