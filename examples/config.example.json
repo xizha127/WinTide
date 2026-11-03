@@ -1,0 +1,18 @@
+{
+  "domain": "windows-workstation",
+  "uri": "qemu:///system",
+  "prefix": "~/.local/opt/winapps-yttrium",
+  "work_dir": "~/.cache/winapps-yttrium",
+  "desktop_user": "CHANGE_ME",
+  "physical_disks": ["/dev/disk/by-id/CHANGE_ME"],
+  "gpu_nodes": ["/dev/dri/renderD128", "/dev/nvidia0", "/dev/nvidiactl", "/dev/nvidia-modeset", "/dev/nvidia-uvm", "/dev/nvidia-uvm-tools"],
+  "honor_guest_pat": true,
+  "host_address": "192.168.122.1",
+  "display": ":0",
+  "wayland_display": "wayland-1",
+  "hostmem_bytes": 4294967296,
+  "shared_directory": null,
+  "shared_uuid": null,
+  "share_letter": "H",
+  "share_tag": "host-games"
+}

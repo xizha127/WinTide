@@ -1,0 +1,28 @@
+--- a/client/SDL/SDL3/sdl_rail.cpp
++++ b/client/SDL/SDL3/sdl_rail.cpp
+@@ -1159,8 +1159,8 @@
+ 	/* Drop transient echo events while client geometry application is in flight. */
+ 	if (w->geomApplyPending())
+ 	{
+-		/* Allow live Wayland compositor resize to advance beyond in-flight apply. */
+-		const bool overtaken = !posKnown && ((lw > vis.w) || (lh > vis.h));
++		/* The compositor can override an in-flight size in either direction. */
++		const bool overtaken = !posKnown && ((lw != vis.w) || (lh != vis.h));
+ 		if (!overtaken)
+ 			return;
+ 		w->clearGeomApplyPending();
+--- a/client/SDL/SDL3/sdl_rail_window.cpp
++++ b/client/SDL/SDL3/sdl_rail_window.cpp
+@@ -979,8 +979,10 @@
+ 
+ bool SdlRailWindow::effectivelyMaximized() const
+ {
+-	return _maxState.rail ||
+-	       (_win && (SDL_GetWindowFlags(_win->window()) & SDL_WINDOW_MAXIMIZED) != 0);
++	// The RAIL state is updated for both compositor and server maximize events.
++	// SDL's cached Wayland flag may remain maximized after a server restore;
++	// treating that stale flag as authoritative prevents all geometry sync.
++	return _maxState.rail;
+ }
+ 
+ bool SdlRailWindow::paint(SDL_Surface* primary, SDL_PixelFormat fallbackFormat,

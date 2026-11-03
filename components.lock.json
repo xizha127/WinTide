@@ -1,0 +1,26 @@
+{
+  "qemu": {
+    "url": "https://github.com/arehnman/yttrium-qemu.git",
+    "commit": "3001a0746a7fe78e03c611fddf09705e718117b0"
+  },
+  "renderer": {
+    "url": "https://github.com/arehnman/virglrenderer.git",
+    "commit": "3d681c0a1a25694d20f655e95a2f95e70b62e7c6"
+  },
+  "freerdp": {
+    "url": "https://github.com/FreeRDP/FreeRDP.git",
+    "commit": "97eff6ddfbbfaa8e42a126d362686bd001ff8bdc",
+    "version": "3.32.2",
+    "patch_fork": "https://github.com/xizha127/FreeRDP",
+    "patch_branch": "winapps-wayland-resize"
+  },
+  "winapps": {
+    "url": "https://github.com/winapps-org/winapps.git",
+    "commit": "0b950dc4b823a759015c549a46c35aaaf31c77c0"
+  },
+  "windows_driver": {
+    "url": "https://github.com/arehnman/yttrium-virtio-gpu/releases/download/yttrium-experimental-2026-11-02/yttrium-viogpu3d-experimental-2026-11-02.zip",
+    "sha256": "d740f749215de5eb15f055b0f2238c4800b2385960dda450521b9577b35ddc87",
+    "release": "yttrium-experimental-2026-11-02"
+  }
+}

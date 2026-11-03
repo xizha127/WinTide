@@ -1,0 +1,16 @@
+diff --git i/src/proxy/proxy_server.c w/src/proxy/proxy_server.c
+index c643f74..a0e58b8 100644
+--- i/src/proxy/proxy_server.c
++++ w/src/proxy/proxy_server.c
+@@ -60,8 +60,9 @@ proxy_server_fork(struct proxy_server *srv)
+    } else {
+       close(client_fd);
+ 
+-      /* do not receive signals from terminal */
+-      setpgid(0, 0);
++      /* Libvirt launches QEMU without a controlling terminal. Avoid setpgid
++       * here: its inherited seccomp policy terminates this render child.
++       * The child remains managed by the VM cgroup. */
+ 
+       char fd_str[16];
+       snprintf(fd_str, sizeof(fd_str), "%d", remote_fd);
