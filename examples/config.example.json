@@ -1,8 +1,8 @@
 {
   "domain": "windows-workstation",
   "uri": "qemu:///system",
-  "prefix": "~/.local/opt/winapps-yttrium",
-  "work_dir": "~/.cache/winapps-yttrium",
+  "prefix": "~/.local/opt/wintide",
+  "work_dir": "~/.cache/wintide",
   "desktop_user": "CHANGE_ME",
   "physical_disks": [
     "/dev/disk/by-id/CHANGE_ME"

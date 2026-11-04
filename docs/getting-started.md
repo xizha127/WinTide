@@ -54,6 +54,8 @@ Use an unprivileged desktop account for the build. Root is needed only for syste
    The password is entered interactively and stored locally with mode `0600`, read through FreeRDP askpass, never put on its command line. Existing Docker WinApps profiles/launchers are not modified. Launcher discovery uses Windows executable registrations and only generates entries for existing files; see [desktop integration](winapps.md).
 
 
-## Compatibility names
+## Installation paths and compatibility names
+
+New installations use `~/.local/opt/wintide` for built components and `~/.cache/wintide` for source/build files, as shown in the example config. These paths remain configurable; existing local configs keep their explicitly selected paths.
 
 The project was previously named `winapps-yttrium-libvirt`. Existing commands, profile directories, services and guest backup paths retain the `winapps-yttrium` name so upgrades do not abandon credentials, backups or installed launchers. The repository rename does not require reinstalling or changing your VM.
