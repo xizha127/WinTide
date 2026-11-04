@@ -1,6 +1,123 @@
+diff --git a/client/SDL/SDL3/sdl_context.cpp b/client/SDL/SDL3/sdl_context.cpp
+--- a/client/SDL/SDL3/sdl_context.cpp
++++ b/client/SDL/SDL3/sdl_context.cpp
+@@ -1161,13 +1161,13 @@
+ 				case SDL_EVENT_WINDOW_MAXIMIZED:
+ 					/* Maximize must complete move first. */
+ 					_rail.completeLocalMoveIfPending();
+-					_rail.handleMaximized(ev.windowID);
++					_rail.handleMaximized(ev.windowID, ev.timestamp);
+ 					return true;
+ 				case SDL_EVENT_WINDOW_MINIMIZED:
+ 					_rail.handleMinimized(ev.windowID);
+ 					return true;
+ 				case SDL_EVENT_WINDOW_RESTORED:
+-					_rail.handleRestored(ev.windowID);
++					_rail.handleRestored(ev.windowID, ev.timestamp);
+ 					return true;
+ 				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+ 					/* Send SC_CLOSE, don't abort the session. */
+diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
 --- a/client/SDL/SDL3/sdl_rail.cpp
 +++ b/client/SDL/SDL3/sdl_rail.cpp
-@@ -1159,8 +1159,8 @@
+@@ -212,12 +212,37 @@
+ 		_sentWorkArea = area;
+ }
+ 
+-void SdlRail::handleMaximized(SDL_WindowID id)
++void SdlRail::handleMaximized(SDL_WindowID id, Uint64 timestamp)
+ {
+ 	std::unique_lock lock(_windowsLock);
+ 	auto* appWindow = getWindowBySdlId(id);
+ 	if (!appWindow || appWindow->isPopup() || !appWindow->window())
+ 		return;
++	if (!(SDL_GetWindowFlags(appWindow->window()) & SDL_WINDOW_MAXIMIZED))
++	{
++		WLog_DBG(TAG, "stale local maximize id=0x%08" PRIx32 " (SDL is restored)",
++		         static_cast<UINT32>(appWindow->id()));
++		return;
++	}
++	if (appWindow->serverStateEcho(timestamp))
++	{
++		WLog_DBG(TAG, "local maximize acknowledged id=0x%08" PRIx32 " (server SDL operation)",
++		         static_cast<UINT32>(appWindow->id()));
++		return;
++	}
++	/* Wayland compositors may mark ordinary tiled windows as maximized. This
++	 * is a local surface allocation, not a request to pin the Windows window
++	 * in WS_MAXIMIZE. Keep a restored remote window resizable and report the
++	 * compositor's allocation with ClientWindowMove instead of SC_MAXIMIZE.
++	 * Server-driven maximization is already represented by railMaximized(). */
++	if (!railPlatformCaps().positionsReadable && !appWindow->railMaximized())
++	{
++		WLog_DBG(TAG, "local maximize id=0x%08" PRIx32 " -> windowed compositor geometry",
++		         static_cast<UINT32>(appWindow->id()));
++		lock.unlock();
++		syncGeometry(id);
++		return;
++	}
+ 	/* Skip the echo of reconcile's own SDL_MaximizeWindow (railMaximized already set). */
+ 	if (appWindow->railMaximized())
+ 	{
+@@ -270,12 +295,24 @@
+ 	sendSystemCommand(appWindow, SC_CLOSE);
+ }
+ 
+-void SdlRail::handleRestored(SDL_WindowID id)
++void SdlRail::handleRestored(SDL_WindowID id, Uint64 timestamp)
+ {
+ 	std::unique_lock lock(_windowsLock);
+ 	auto* appWindow = getWindowBySdlId(id);
+ 	if (!appWindow || appWindow->isPopup() || !appWindow->window())
+ 		return;
++	if (SDL_GetWindowFlags(appWindow->window()) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED))
++	{
++		WLog_DBG(TAG, "stale local restore id=0x%08" PRIx32 " (SDL is not restored)",
++		         static_cast<UINT32>(appWindow->id()));
++		return;
++	}
++	if (appWindow->serverStateEcho(timestamp))
++	{
++		WLog_DBG(TAG, "local restore acknowledged id=0x%08" PRIx32 " (server SDL operation)",
++		         static_cast<UINT32>(appWindow->id()));
++		return;
++	}
+ 	/* Resolve which state a RESTORED event ends; both clear = echo of our own restore, skip. */
+ 	if (appWindow->railMinimized())
+ 		appWindow->setRailMinimized(false);
+@@ -692,7 +729,22 @@
+ 	/* ServerSystemParam not implemented: the server only sends screensaver state here. */
+ 	rail->ServerLocalMoveSize = SdlRail::server_local_move_size;
+ 	rail->ServerMinMaxInfo = SdlRail::server_min_max_info;
+-	/* Keep default ServerHandshake. */
++	rail->ServerHandshake = [](RailClientContext* channel, const RAIL_HANDSHAKE_ORDER*) -> UINT {
++		auto* self = static_cast<SdlRail*>(channel->custom);
++		const RAIL_HANDSHAKE_ORDER reply = {
++		    freerdp_settings_get_uint32(self->_context->context()->settings, FreeRDP_ClientBuild) };
++		const UINT rc = channel->ClientHandshake(channel, &reply);
++		if (rc != CHANNEL_RC_OK)
++			return rc;
++		if (self->_launchSent.exchange(true))
++			return CHANNEL_RC_OK;
++		self->enableRemoteAppMode(true);
++		return client_rail_server_start_cmd(channel);
++	};
++	rail->ServerHandshakeEx = [](RailClientContext* channel, const RAIL_HANDSHAKE_EX_ORDER* ex) -> UINT {
++		const RAIL_HANDSHAKE_ORDER handshake = { ex->buildNumber };
++		return channel->ServerHandshake(channel, &handshake);
++	};
+ 
+ 	WLog_WARN(TAG, "RemoteApp/RAIL support in the SDL client is experimental");
+ 	const RailPlatformCaps& caps = railPlatformCaps();
+@@ -715,6 +767,7 @@
+ 	 * late order in a release build. _enabled gates them instead. */
+ 	std::unique_lock lock(_windowsLock);
+ 	_refreshSent = false;
++	_launchSent = false;
+ 	/* Reset session and move state on reconnect. */
+ 	_localMove = {};
+ 	_sessionMargins = {};
+@@ -1159,8 +1212,8 @@
  	/* Drop transient echo events while client geometry application is in flight. */
  	if (w->geomApplyPending())
  	{
@@ -11,9 +128,196 @@
  		if (!overtaken)
  			return;
  		w->clearGeomApplyPending();
+@@ -1433,6 +1486,16 @@
+ 	switch (state->showState)
+ 	{
+ 		case WINDOW_SHOW_MAXIMIZED:
++			if (!railPlatformCaps().positionsReadable && !appWindow->isPopup())
++			{
++				/* A maximized Windows HWND rejects ClientWindowMove sizes. Keep
++				 * it restored and let SDL/the compositor own local maximization. */
++				if (appWindow->requestWindowedRestore())
++					sendSystemCommand(appWindow, SC_RESTORE);
++				appWindow->setServerMaximized(false);
++				appWindow->setServerMinimized(false);
++				break;
++			}
+ 			appWindow->setServerMaximized(true);
+ 			appWindow->setServerMinimized(false);
+ 			break;
+@@ -1440,6 +1503,7 @@
+ 			appWindow->setServerMinimized(true);
+ 			break;
+ 		case WINDOW_SHOW:
++			appWindow->acknowledgeWindowedRestore();
+ 			appWindow->setServerMaximized(false);
+ 			appWindow->setServerMinimized(false);
+ 			break;
+@@ -1539,7 +1603,7 @@
+ 	}
+ 
+ 	if (fieldFlags & WINDOW_ORDER_FIELD_SHOW)
+-		updateShowState(appWindow, orderInfo, windowState);
++		rail->updateShowState(appWindow, orderInfo, windowState);
+ 
+ 	if (fieldFlags & WINDOW_ORDER_FIELD_VIS_OFFSET)
+ 	{
+@@ -1684,7 +1748,7 @@
+ 		rail->enableRemoteAppMode(true);
+ 		const char* app =
+ 		    freerdp_settings_get_string(context->settings, FreeRDP_RemoteApplicationProgram);
+-		if (app && (strnlen(app, 1) > 0))
++		if (app && (strnlen(app, 1) > 0) && !rail->_launchSent.exchange(true))
+ 		{
+ 			WLog_DBG(TAG, "RAIL mode enabled (monitored desktop); launching '%s'", app);
+ 			if (client_rail_server_start_cmd(rail->_rail) != CHANNEL_RC_OK)
+diff --git a/client/SDL/SDL3/sdl_rail.hpp b/client/SDL/SDL3/sdl_rail.hpp
+--- a/client/SDL/SDL3/sdl_rail.hpp
++++ b/client/SDL/SDL3/sdl_rail.hpp
+@@ -77,9 +77,9 @@
+ 	/* Mark a RAIL window fully dirty and request a repaint (e.g. on expose). */
+ 	void invalidateWindow(SDL_WindowID id);
+ 	/* Local maximize/minimize/restore state handlers. */
+-	void handleMaximized(SDL_WindowID id);
++	void handleMaximized(SDL_WindowID id, Uint64 timestamp);
+ 	void handleMinimized(SDL_WindowID id);
+-	void handleRestored(SDL_WindowID id);
++	void handleRestored(SDL_WindowID id, Uint64 timestamp);
+ 	void handleClose(SDL_WindowID id);
+ 	/* Local focus change: send ClientActivate, like xf FocusIn/FocusOut. */
+ 	void handleFocus(SDL_WindowID id, bool gained);
+@@ -165,7 +165,7 @@
+ 	/* window_common field handlers (split out for readability). */
+ 	void updateMargins(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
+ 	                   const WINDOW_STATE_ORDER* state);
+-	static void updateShowState(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
++	void updateShowState(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
+ 	                            const WINDOW_STATE_ORDER* state);
+ 	static void updateVisRects(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
+ 	                           const WINDOW_STATE_ORDER* state);
+@@ -195,6 +195,7 @@
+ 	RailClientContext* _rail = nullptr;
+ 	/* Written on the RDP thread (RemoteApp mode toggles), read lock-free on the main thread. */
+ 	std::atomic<bool> _enabled = false;
++	std::atomic<bool> _launchSent = false;
+ 	bool _refreshSent = false; /* one full RefreshRect per connection, at first window realize */
+ 	/* Last work area reported to the server (server coordinates). */
+ 	SDL_Rect _sentWorkArea = { 0, 0, 0, 0 };
+diff --git a/client/SDL/SDL3/sdl_rail_window.cpp b/client/SDL/SDL3/sdl_rail_window.cpp
 --- a/client/SDL/SDL3/sdl_rail_window.cpp
 +++ b/client/SDL/SDL3/sdl_rail_window.cpp
-@@ -979,8 +979,10 @@
+@@ -641,6 +641,10 @@
+ 		return false;
+ 	}
+ 
++	/* Do not map a remembered maximized rectangle while SC_RESTORE is in flight. */
++	if (_windowedRestorePending)
++		return false;
++
+ 	if (!_win)
+ 	{
+ 		if (!create(parent, parentRect))
+@@ -656,6 +660,17 @@
+ 		/* X11 only; Wayland has no protocol for this, the call still returns true. */
+ 		if (!_isPopup && !_layered)
+ 			std::ignore = SDL_SetWindowAlwaysOnTop(_win->window(), _topmost);
++	}
++
++	if (_localMaximizeToggle)
++	{
++		_localMaximizeToggle = false;
++		if (SDL_GetWindowFlags(_win->window()) & SDL_WINDOW_MAXIMIZED)
++			SDL_RestoreWindow(_win->window());
++		else
++			SDL_MaximizeWindow(_win->window());
++		/* This changes only the compositor allocation, never WS_MAXIMIZE. */
++		std::ignore = SDL_SyncWindow(_win->window());
+ 	}
+ 
+ 	/* Resizability first: SDL refuses to maximize a non-resizable window. */
+@@ -700,21 +715,20 @@
+ 		                         std::clamp(_minSize.y, 0, vis.h));
+ 		int maxW = (_maxSize.x > 0) ? std::max(1, _maxSize.x) : 0;
+ 		int maxH = (_maxSize.y > 0) ? std::max(1, _maxSize.y) : 0;
+-		/* Wayland: cap to the usable area - an oversized window cannot be dragged into reach. */
+-		SDL_Rect usable{};
+-		if (!railPlatformCaps().positionsReadable &&
+-		    SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &usable))
+-		{
+-			/* The local window is the outer frame: cap to the usable area plus the insets. */
+-			const SDL_Rect bi = bandInsets();
+-			const int capW = usable.w + bi.x + bi.w;
+-			const int capH = usable.h + bi.y + bi.h;
+-			if ((maxW == 0) || (maxW > capW))
+-				maxW = capW;
+-			if ((maxH == 0) || (maxH > capH))
+-				maxH = capH;
++		/* Windows max-track sizes include its virtual work area. They are not
++		 * application limits in the local compositor's coordinate space. A
++		 * finite monitor-sized cap causes tiling WMs to reject the surface when
++		 * their tile is larger (including panel/border differences). Resizable
++		 * Wayland toplevels must let the compositor allocate their full tile. */
++		if (!railPlatformCaps().positionsReadable && styleResizable() && !_isPopup)
++		{
++			maxW = 0;
++			maxH = 0;
+ 		}
+ 		SDL_SetWindowMaximumSize(_win->window(), maxW, maxH);
++		WLog_DBG(TAG, "size hints id=0x%08" PRIx32 " resizable=%d min=%dx%d max=%dx%d owner=0x%08" PRIx64,
++		         static_cast<UINT32>(_id), styleResizable(), std::clamp(_minSize.x, 0, vis.w),
++		         std::clamp(_minSize.y, 0, vis.h), maxW, maxH, _ownerId);
+ 		_minMaxDirty = false;
+ 	}
+ 
+@@ -936,6 +950,24 @@
+ 	setServerState(_maxState, m);
+ }
+ 
++bool SdlRailWindow::requestWindowedRestore()
++{
++	std::unique_lock lock(_gfxLock);
++	if (_windowedRestorePending)
++		return false;
++	_windowedRestorePending = true;
++	/* Remembered startup maximization must not maximize the local tile. A
++	 * later click on the native maximize button acts on the local surface. */
++	_localMaximizeToggle = _mapped && (SDL_GetTicks() - _mappedAt > 3000);
++	return true;
++}
++
++void SdlRailWindow::acknowledgeWindowedRestore()
++{
++	std::unique_lock lock(_gfxLock);
++	_windowedRestorePending = false;
++}
++
+ void SdlRailWindow::setServerMinimized(bool m)
+ {
+ 	setServerState(_minState, m);
+@@ -944,6 +976,12 @@
+ bool SdlRailWindow::applyServerState(StateSync& s, const char* what, bool (*enter)(SDL_Window*))
+ {
+ 	if (!s.dirty)
++		return false;
++	/* A hidden SDL window defers state requests until it is mapped. Queuing
++	 * maximize and then restore here can leave a stale maximize to execute on
++	 * first show, after Windows has already restored. Keep only the latest RAIL
++	 * state, and apply it once the initial map has actually completed. */
++	if (SDL_GetWindowFlags(_win->window()) & SDL_WINDOW_HIDDEN)
+ 		return false;
+ 	bool restored = false;
+ 	if (s.server && !s.rail)
+@@ -966,7 +1004,8 @@
+ 		return false;
+ 	}
+ 	/* Settle WM state before reading window properties. */
+-	(void)SDL_SyncWindow(_win->window());
++	if (SDL_SyncWindow(_win->window()))
++		_stateEcho.syncedThrough(SDL_GetTicksNS());
+ 	s.dirty = false;
+ 	return restored;
+ }
+@@ -979,8 +1018,10 @@
  
  bool SdlRailWindow::effectivelyMaximized() const
  {
@@ -26,3 +330,110 @@
  }
  
  bool SdlRailWindow::paint(SDL_Surface* primary, SDL_PixelFormat fallbackFormat,
+@@ -1005,11 +1046,14 @@
+ 	}
+ 
+ 	/* Map in the same pass as the first frame, else the window defers a frame (menu lag). */
+-	if (_gfxPresented && !_mapped && !_minState.rail)
++	if (_gfxPresented && !_mapped && !_minState.rail && !_minState.server)
+ 	{
+ 		_mapped = true;
++		_mappedAt = SDL_GetTicks();
+ 		WLog_DBG(TAG, "map id=0x%08" PRIx32 " %s", static_cast<uint32_t>(_id), role());
+ 		SDL_ShowWindow(_win->window());
++		if (SDL_SyncWindow(_win->window()))
++			_stateEcho.syncedThrough(SDL_GetTicksNS());
+ 		/* Reassert target position after show to override stale events. */
+ 		if (_isPopup && parent)
+ 		{
+diff --git a/client/SDL/SDL3/sdl_rail_window.hpp b/client/SDL/SDL3/sdl_rail_window.hpp
+--- a/client/SDL/SDL3/sdl_rail_window.hpp
++++ b/client/SDL/SDL3/sdl_rail_window.hpp
+@@ -28,6 +28,7 @@
+ #include <SDL3/SDL.h>
+ 
+ #include <freerdp/types.h>
++#include "sdl_rail_state.hpp"
+ 
+ class SdlWindow;
+ 
+@@ -125,6 +126,10 @@
+ 	[[nodiscard]] bool isPopup() const;
+ 	/* Full-screen popup treated as a top-level window. */
+ 	[[nodiscard]] bool isFullscreen() const;
++	[[nodiscard]] bool serverStateEcho(uint64_t timestamp) const
++	{
++		return _stateEcho.contains(timestamp);
++	}
+ 	/* Layered decoration (drop shadow); realized only while anchored to a visible popup. */
+ 	[[nodiscard]] bool isLayered() const;
+ 	/* Mark shadow anchored to an active popup. */
+@@ -166,6 +171,9 @@
+ 		_maxState.rail = m;
+ 	}
+ 	void setServerMaximized(bool m);
++	/* Wayland owns local maximize; the remote HWND stays restored for resizing. */
++	bool requestWindowedRestore();
++	void acknowledgeWindowedRestore();
+ 	[[nodiscard]] bool railMinimized() const
+ 	{
+ 		return _minState.rail;
+@@ -274,6 +282,10 @@
+ 	bool _shadowAnchored = false;  /* a visible popup adjoins this shadow (see setShadowAnchored) */
+ 	bool _frame = false;           /* companion shadow frame */
+ 	bool _parentApplied = false;   /* transient-for owner set once (owned non-popup dialogs) */
++	SdlRailStateEcho _stateEcho; /* main-thread SDL state-operation acknowledgements */
++	bool _windowedRestorePending = false;
++	bool _localMaximizeToggle = false;
++	uint64_t _mappedAt = 0;
+ 	StateSync _maxState;           /* maximize sync */
+ 	StateSync _minState;           /* minimize sync */
+ 	std::string _title = "RdpRailWindow";
+diff --git a/client/SDL/SDL3/sdl_rail_state.hpp b/client/SDL/SDL3/sdl_rail_state.hpp
+new file mode 100644
+--- /dev/null
++++ b/client/SDL/SDL3/sdl_rail_state.hpp
+@@ -0,0 +1,43 @@
++/**
++ * FreeRDP: A Remote Desktop Protocol Implementation
++ * SDL RAIL state-event synchronization
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#pragma once
++
++#include <cstdint>
++
++/* SDL_SyncWindow dispatches platform events into SDL's queue without consuming
++ * the application's SDL events. Once it completes, events generated through
++ * that barrier acknowledge our server-driven operation; they are not new local
++ * user intent, even if another RAIL order has since changed the desired state.
++ * Per-window and timestamp-based: later user actions are not suppressed by an
++ * arbitrary timeout. SDL event timestamps and SDL_GetTicksNS use the same clock.
++ */
++class SdlRailStateEcho
++{
++  public:
++	void syncedThrough(uint64_t timestamp)
++	{
++		if (timestamp > _through)
++			_through = timestamp;
++	}
++	[[nodiscard]] bool contains(uint64_t timestamp) const
++	{
++		return timestamp != 0 && timestamp <= _through;
++	}
++
++  private:
++	uint64_t _through = 0;
++};

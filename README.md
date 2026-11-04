@@ -1,102 +1,116 @@
-# WinApps + Yttrium + libvirt
+<div align="center">
 
-Run an existing Windows installation under Linux, expose Windows apps in the Linux launcher, share the host GPU through Yttrium, and optionally share a Linux game drive through VirtioFS.
+# WinTide
 
-This repository assembles other people's substantial work. **Yttrium by [arehnman](https://github.com/arehnman) provides the shared GPU stack; [WinApps](https://github.com/winapps-org/winapps) and [FreeRDP](https://github.com/FreeRDP/FreeRDP) provide the application integration.** See [all credits and licenses](THIRD_PARTY.md).
+### Windows apps. Linux flow.
 
-It includes the known-working source pins, two SDL/Wayland resize fixes, a small libvirt renderer compatibility patch, a shared-drive permission safeguard, a setup script, physical-disk mount protection, guest configuration, optional drive sharing, and a Direct3D hardware smoke test. Upstream sources and Windows binaries are fetched from their projects, not republished here.
+Bring your Windows apps into your Linux workspace—with native Wayland windows, responsive resizing, and a shared GPU path that keeps Linux in control.
 
-## What has actually worked
+[Get started](docs/getting-started.md) · [What works](docs/validation.md) · [How we fixed it](docs/fixes.md) · [Credits](#credits)
 
-Tested on an Intel hybrid-core laptop, an RTX 4070 Laptop GPU with NVIDIA's proprietary Linux driver, CachyOS/Hyprland, and an existing Windows 11 Pro installation on a separate physical NVMe disk:
+**Linux + Windows 11 · libvirt / KVM · SDL3 / Wayland · Yttrium**
 
-- Raw-disk Windows boot under libvirt, while preserving native boot as an option.
-- Windows apps launched through WinApps and the patched SDL3 FreeRDP client.
-- Floating-window growth/shrink and maximized-state resize fixes, confirmed interactively.
-- Linux continuing to use the GPU while Windows renders through Yttrium/Venus.
-- Hardware D3D11 device creation **and an actual GPU clear/readback**, not just adapter enumeration.
-- An ext4 USB game drive accessible from Windows as `H:` and Linux simultaneously; read/write verified.
+</div>
 
-Actual games, DirectX 12, sustained performance, all hardware combinations, and a clean-machine end-to-end installation have **not** been validated. The installer is a reproducible implementation of the working steps, not a claim of universal compatibility. See [validation](docs/validation.md).
+---
 
-## How the pieces connect
+## Your apps, in your workspace
 
-```text
-Linux launcher -> WinApps -> patched SDL3 FreeRDP -> Windows RemoteApps
-Linux libvirt -> Yttrium QEMU -> physical Windows disk (unmounted on Linux)
-Windows Yttrium driver -> Venus -> patched virglrenderer -> Linux GPU driver
-Windows H: -> VirtioFS/WinFsp -> Linux-mounted ext4 game directory
+Open a Windows app from your Linux launcher. Tile it beside your Linux apps. Resize it, maximize it, and bring it back without fighting two window managers.
+
+**WinTide is our implementation of that workflow:** a reproducible setup toolkit, RemoteApp client fixes, launcher integration, and VM lifecycle tooling built on WinApps, FreeRDP, Yttrium and libvirt. Use an existing Windows VM—or a supported physical Windows installation—while keeping your Linux desktop and host GPU available.
+
+```mermaid
+flowchart LR
+    A["Your Linux launcher"] --> B["WinTide\nLaunchers + patched SDL client"]
+    B <-->|"RemoteApp windows\nTile · resize · maximize"| C["Windows apps\nlibvirt / KVM"]
+    C --> D["Yttrium + Venus\nShared GPU rendering"]
+    D --> E["Linux host GPU\nStill available to Linux"]
+    F["Existing Windows installation\nVM disk or guarded physical disk"] --> C
+    style B fill:#0b5260,stroke:#5eead4,color:#ffffff
+    style C fill:#163752,stroke:#7dd3fc,color:#ffffff
+    style D fill:#163752,stroke:#7dd3fc,color:#ffffff
 ```
 
-The physical Windows boot disk and the shared game drive use different access models. The former is exclusively owned by Windows while the VM runs. The latter is shared at the file level through Linux's filesystem.
+*Architecture illustration, not a recorded demo. No personal desktop screenshots or account data are bundled.*
 
-## Replicate on an existing installation
+## What WinTide brings
 
-The automated path starts with an **existing, bootable x86-64 Windows 11 Pro/Enterprise VM in system libvirt**, with QEMU Guest Agent running. It can use your physical Windows disk. Building that initial VM and correcting a machine-specific EFI/BCD layout is covered in [physical disk and boot preparation](docs/physical-disk.md); the installer never guesses at boot-record repair, formats a disk, or attaches the disk containing your running Linux installation.
+| Implementation | What it does for you |
+|---|---|
+| **SDL window-state and resize fixes** | Keep the remote Windows window restored while the local compositor controls its size. Settings and Explorer open tiled; maximize/restore and resizing work without repeated toggles. |
+| **Correct Wayland size hints** | Remove the artificial maximum-size cap that caused resizable apps to be forced floating. No Hyprland-specific window rules. |
+| **Reliable RemoteApp startup** | Launch once after the RAIL handshake, fixing the observed login-image stall. |
+| **Linux launcher integration** | Discover registered Windows executables, generate desktop entries, and provide a standalone Explorer broker. |
+| **Guarded libvirt lifecycle** | Review a generated plan, preserve the existing VM configuration, protect physical disks from simultaneous host mounting, and retain rollback state. |
+| **Shared GPU integration** | Build the pinned Yttrium QEMU/renderer stack and configure the matching Windows driver without dedicating the host GPU to passthrough. |
+| **Optional Windows startup helper** | A small Rust/windows-rs helper restores newly shown maximized windows in the interactive RDP session. The SDL fix handles the cross-desktop state problem. |
+| **Optional VirtioFS permission guard** | Allow content writes while preventing guest ACL translation from stripping Linux access permissions. |
 
-Use an unprivileged desktop account for the build. Root is needed only for system libvirt setup and guest-agent operations.
+Read the [implementation details](docs/fixes.md) and [launcher behavior](docs/winapps.md).
 
-1. Install the [host prerequisites](docs/requirements.md). Confirm the base VM boots and that `virsh -c qemu:///system qemu-agent-command YOUR_VM '{"execute":"guest-ping"}'` responds.
-2. Create a local configuration:
+## What works today
 
-   ```sh
-   cp examples/config.example.json local-config.json
-   chmod 600 local-config.json
-   # Edit domain, desktop_user, physical_disks and display values.
-   # Optional: set shared_directory and shared_uuid for a Linux-mounted drive.
-   ./setup.sh --config local-config.json doctor
-   ./setup.sh --config local-config.json build
-   ```
+The reference setup runs CachyOS/Hyprland, Windows 11 Pro on a physical NVMe disk, and an NVIDIA RTX 4070 Laptop GPU. We have verified:
 
-3. While Windows is running with its original console graphics, prepare RemoteApps and the verified driver:
+- Windows apps launching into the Linux desktop through the patched SDL3 client.
+- Settings and Explorer opening tiled, plus working resize and maximize/restore behavior confirmed interactively.
+- Windows booting from its existing physical installation under libvirt, with host mount protection.
+- Yttrium hardware **Direct3D 11 device creation and GPU clear/readback**, while Linux continues using the GPU.
+- Optional VirtioFS read/write and permission protection against the reproduced mode-000 failure.
 
-   ```sh
-   sudo ./setup.sh --config local-config.json guest --guest-mode rdp --windows-user YOUR_LOCAL_WINDOWS_USER
-   sudo ./setup.sh --config local-config.json guest --guest-mode yttrium --enable-test-signing --disable-hibernation
-   # If sharing a drive, first install VirtIO-Win VioFS + WinFsp; then:
-   sudo ./setup.sh --config local-config.json guest --guest-mode share
-   ```
+**This is an experimental desktop integration with tested components, not a universal gaming solution.** DirectX 12, individual games, other GPU vendors, other compositors and a clean-machine end-to-end installation have not been validated. The Windows graphics driver requires test signing; review [driver and security changes](docs/security.md).
 
-   Read [security and signing](docs/security.md) first. The Yttrium release is test-signed; this changes the Windows installation. A Microsoft account PIN is not an RDP password.
+VM hiding, identity spoofing, custom concealment firmware and anti-cheat bypass experiments are outside WinTide's scope and are no longer part of the setup toolkit.
 
-4. Shut Windows down cleanly. Generate and inspect the plan before applying:
+## Get started
 
-   ```sh
-   ./setup.sh --config local-config.json plan
-   # Review local-plan/domain.yttrium.xml and local-plan/config.json.
-   sudo ./setup.sh --config local-config.json apply-host
-   sudo ./setup.sh --config local-config.json start
-   ```
-
-   Existing CPU, storage, network and firmware are retained. A running VM is never force-stopped. Existing custom QEMU command-line arguments or passthrough devices require manual review; the installer refuses to silently replace them. The operation installs namespaced files and records rollback copies.
-
-5. Sign in, then install the isolated Linux client profile:
-
-   ```sh
-   ./setup.sh --config local-config.json install-client --windows-user YOUR_LOCAL_WINDOWS_USER
-   winapps-yttrium manual 'C:\Windows\System32\notepad.exe'
-   sudo ./setup.sh --config local-config.json discover
-   ./setup.sh --config local-config.json launchers
-   ```
-
-   The password is entered interactively and stored locally with mode `0600`, read through FreeRDP askpass, never put on its command line. Existing Docker WinApps profiles/launchers are not modified. Launcher discovery uses Windows executable registrations and only generates entries for existing files; see [desktop integration](docs/winapps.md).
-
-## Daily use
+Start with an existing, bootable Windows 11 Pro/Enterprise VM in system libvirt, QEMU Guest Agent, and the [host prerequisites](docs/requirements.md). WinTide does not install Windows or guess how to repair your boot records.
 
 ```sh
-sudo ./setup.sh --config local-config.json start
-sudo ./setup.sh --config local-config.json share   # attach configured drive if mounted
-sudo ./setup.sh --config local-config.json stop    # graceful shutdown, then restore previous Linux mounts
+git clone https://github.com/xizha127/WinTide.git
+cd WinTide
+cp examples/config.example.json local-config.json
+chmod 600 local-config.json
+# Edit local-config.json for your VM, desktop user and disks.
+./setup.sh --config local-config.json doctor
+./setup.sh --config local-config.json build
 ```
 
-Optional sharing attaches on VM startup or the configured mount appearing. An absent game drive does not prevent VM startup. Stop applications before disconnecting USB storage; do not have two Steam installations update the same game/library metadata at once. More in [sharing](docs/sharing.md).
+Then follow the [complete setup guide](docs/getting-started.md) for guest preparation, plan review, host integration and app launchers. Building alone does not configure the VM.
 
-## Recovery and contributing
+Existing installations keep their `winapps-yttrium` command, profile and service names for compatibility. The rebrand does not require reinstalling your working setup.
 
-See [rollback](docs/rollback.md), [known fixes](docs/fixes.md), and [privacy](docs/privacy.md). Do not attach configs, BCD exports, VM XML, logs, recovery keys or disk images to issues without sanitizing them.
+## Choose the right storage path
 
-The FreeRDP fixes are also maintained separately in [xizha127/FreeRDP, `winapps-wayland-resize`](https://github.com/xizha127/FreeRDP/tree/winapps-wayland-resize). This is an integration project, not an official release or endorsement from any upstream project.
+The Windows system disk is exclusively owned by the VM while it runs. Optional VirtioFS shares expose files mounted by Linux, rather than sharing raw filesystem ownership.
 
-## Optional metadata candidate
+VirtioFS is useful for shared files, but sequential throughput did **not** translate into reliable Steam library behavior in our tests: validation and space reservation could be slow, and library size reporting was problematic. A directly attached Windows-owned NTFS game disk performed much better on the reference system. That later storage arrangement is not automatically provisioned by this installer. See [storage choices and limitations](docs/sharing.md).
 
-See [the isolated QEMU/firmware recipe](docs/concealment.md) for `./setup.sh concealment` build, stage, activation and rollback commands. It preserves the working Yttrium stack and does not promise anti-cheat compatibility.
+## Explore the project
+
+| Guide | Covers |
+|---|---|
+| [Getting started](docs/getting-started.md) | Reproduce the supported setup |
+| [Physical disk and boot](docs/physical-disk.md) | Prepare an existing installation safely |
+| [Windows apps](docs/winapps.md) | Launchers, Explorer, SDL and the optional helper |
+| [Fixes](docs/fixes.md) | Our client and renderer changes |
+| [Performance](docs/performance.md) | CPU placement, startup load and bottlenecks |
+| [Validation](docs/validation.md) | Evidence, checks and remaining limits |
+| [Rollback](docs/rollback.md) | Restore the previous configuration |
+| [Privacy](docs/privacy.md) | Keep credentials and machine state out of Git |
+
+Source versions and download checksums are pinned in [`components.lock.json`](components.lock.json). Original WinTide integration code is [MIT licensed](LICENSE); upstream patch contexts retain their own licenses. The separate [FreeRDP fork](https://github.com/xizha127/FreeRDP/tree/winapps-wayland-resize) contains earlier resize work; this repository's patch is the source of truth for the current setup.
+
+## Credits
+
+WinTide's implementations stand on substantial upstream work:
+
+- **[WinApps](https://github.com/winapps-org/winapps)** and original creator **[Fmstrat](https://github.com/Fmstrat/winapps)** — the RemoteApp integration model and launcher core.
+- **[FreeRDP](https://github.com/FreeRDP/FreeRDP)**, including **Ibrahim Sevinc's SDL3 RAIL work**, and **[SDL](https://libsdl.org/)** — the protocol and native Wayland window foundation we extend.
+- **[arehnman / Yttrium](https://github.com/arehnman/yttrium-virtio-gpu)** — the Windows GPU driver and matching [QEMU](https://github.com/arehnman/yttrium-qemu), [renderer](https://github.com/arehnman/virglrenderer) and [Mesa integration](https://github.com/arehnman/virtio-win-mesa).
+- **[QEMU](https://www.qemu.org/)**, **[KVM](https://linux-kvm.org/)**, **[libvirt](https://libvirt.org/)**, **[Mesa/Venus](https://www.mesa3d.org/)** and **[virglrenderer](https://gitlab.freedesktop.org/virgl/virglrenderer)** — virtualization and shared graphics infrastructure.
+- **[VirtIO-Win](https://github.com/virtio-win/kvm-guest-drivers-windows)**, **[VirtioFS](https://virtio-fs.gitlab.io/)** and **[WinFsp](https://github.com/winfsp/winfsp)** — guest integration and optional file sharing.
+- **[Microsoft windows-rs](https://github.com/microsoft/windows-rs)** — Windows API bindings for our Rust helper.
+
+See [full attribution and license details](THIRD_PARTY.md), including firmware, console and TPM components. WinTide is an independent integration project, not an official product or endorsement from these projects.

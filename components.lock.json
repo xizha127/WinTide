@@ -27,24 +27,5 @@
     "url": "https://gitlab.com/virtio-fs/virtiofsd.git",
     "commit": "c2540f8db14caba81c1e37fba23fc7bf2cd7f0dd",
     "version": "1.14.0"
-  },
-  "aicodo": {
-    "url": "https://github.com/AICodo/pve-emu-realpc",
-    "commit": "7423d5a48805cb3a29d79083b606c8c53bdd0d8c",
-    "release": "v20261031-211946-pve9-x64",
-    "patch_sha256": "22d55e2397bd6694ba94bcb00381576d26129f6e7fb3719bbdac02db2c09ff42"
-  },
-  "aicodo_firmware": {
-    "url": "https://github.com/AICodo/pve-emu-realpc_edk2-firmware-ovmf",
-    "commit": "eb520a2a9a356dbea983989843f97294b893e35d"
-  },
-  "edk2": {
-    "url": "https://github.com/tianocore/edk2.git",
-    "commit": "2970e5699ba6267f3384ffab20f96647578aebc8",
-    "tag": "edk2-stable202608"
-  },
-  "vmaware": {
-    "url": "https://github.com/NotRequiem/VMAware.git",
-    "commit": "c8092c6cd6844f60296f73c002a249d18ecbc868"
   }
 }

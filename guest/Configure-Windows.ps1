@@ -46,7 +46,10 @@ if ($Mode -eq 'rdp') {
 elseif ($Mode -eq 'yttrium') {
  if (!$EnableTestSigning) {throw 'Test-signing opt-in is required.'}
  $secure=$false
- try {$secure=Confirm-SecureBootUEFI} catch {if ($_.Exception.Message -notmatch 'not supported') {throw}}
+ try {$secure=Confirm-SecureBootUEFI} catch {
+  # Non-Secure-Boot OVMF may omit the variable entirely rather than return false.
+  if ($_.Exception.Message -notmatch 'not supported|Variable is currently undefined: 0xC0000100') {throw}
+ }
  if ($secure) {throw 'Disable Secure Boot for this VM first; native firmware is not modified by this script.'}
  $driver="$base\driver"
  $zip="$base\yttrium-2026-11-02.zip"

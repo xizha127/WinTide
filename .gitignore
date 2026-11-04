@@ -58,5 +58,6 @@
 **/state/
 **/backups/
 **/build/
+**/target/
 **/sources/
 **/.cache/

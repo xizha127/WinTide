@@ -1,4 +1,17 @@
-# Optional shared game drive
+# Optional file sharing and game storage
+
+## Choose the storage model first
+
+| Model | Ownership | Observed result / setup scope |
+|---|---|---|
+| VirtioFS shared directory | Linux mounts the filesystem; Windows uses file operations | Read/write and the permission guard are verified. Included as an optional installer path. Steam validation, allocation and library reporting remained problematic. |
+| Direct Windows game disk | Windows alone mounts NTFS while the VM runs | The reference system's Steam storage operations became fast after switching. Manual libvirt provisioning; not automated here. |
+| Windows-to-Linux network share | Windows owns the disk; Linux accesses exported files | Reverse SMB read/write/rename was tested separately. Not provisioned by this installer; caching can delay visibility. |
+
+For a Windows-owned disk, Linux must not also mount its raw filesystem. Access it from Linux through a file-sharing service, or shut down Windows and detach the disk before mounting it locally. The permission policy below applies only to VirtioFS; it is not an NTFS mount policy.
+
+## Configure optional VirtioFS
+
 
 Install official [VirtIO-Win VioFS](https://github.com/virtio-win/kvm-guest-drivers-windows) and [WinFsp](https://winfsp.dev/). The reference machine already had both, so the installer configures those existing components and stages their installed driver. It does not silently run an entire guest-tools bundle that might replace the graphics driver.
 

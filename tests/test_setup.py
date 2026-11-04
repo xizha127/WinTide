@@ -6,6 +6,28 @@ import setup,runtime
 XML='''<domain type="kvm"><name>testvm</name><cpu mode="custom"><model>Skylake-Client-IBRS</model></cpu><devices><emulator>/usr/bin/qemu-system-x86_64</emulator><disk type="block"><source dev="/dev/example"/></disk><graphics type="spice"/><video><model type="qxl"/></video><channel type="spicevmc"/><interface type="network"><source network="default"/></interface></devices></domain>'''
 C={'domain':'testvm','prefix':'/opt/test','uid':1000,'gid':1000,'tpm_gid':973,'home':'/example','hostmem_bytes':4294967296,'display':':0','wayland_display':'wayland-1','physical_disks':[],'uri':'qemu:///system','shared_directory':'/mnt/test','shared_uuid':'expected','share_tag':'host-games','share_letter':'H'}
 class SetupTests(unittest.TestCase):
+ def test_guest_binary_copy_handles_partial_writes_and_closes(self):
+  data=b'abcdef';calls=[]
+  def agent(c,command,args):
+   calls.append((command,args))
+   if command=='guest-file-open':return 42
+   if command=='guest-file-write':return {'count':2}
+   return {}
+  with patch.object(runtime,'agent',side_effect=agent):runtime.guest_write(C,'C:\\helper.exe',data)
+  import base64
+  chunks=[base64.b64decode(a['buf-b64']) for command,a in calls if command=='guest-file-write']
+  self.assertEqual(chunks,[b'abcdef',b'cdef',b'ef'])
+  self.assertEqual(calls[-1],('guest-file-close',{'handle':42}))
+ def test_guest_binary_copy_closes_after_failure(self):
+  calls=[]
+  def agent(c,command,args):
+   calls.append(command)
+   if command=='guest-file-open':return 42
+   if command=='guest-file-write':return {'count':0}
+   return {}
+  with patch.object(runtime,'agent',side_effect=agent):
+   with self.assertRaisesRegex(RuntimeError,'progress'):runtime.guest_write(C,'C:\\helper.exe',b'data')
+  self.assertEqual(calls[-1],'guest-file-close')
  def test_restore_saved_memory_refuses_before_touching_mounts(self):
   with patch.object(runtime,'state',return_value='shut off'),patch.object(runtime,'run',return_value=subprocess.CompletedProcess([],0,'','')):
    with self.assertRaisesRegex(RuntimeError,'saved Windows memory'):runtime.restore(C,pathlib.Path('/missing'))

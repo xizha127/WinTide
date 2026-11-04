@@ -134,7 +134,7 @@ def gpu_acl(text,nodes):
   raw=re.sub(r'#[^\n]*','',matches[0].group(1));old=ast.literal_eval(raw)
   if not isinstance(old,list) or not all(isinstance(s,str) for s in old):raise ValueError('Invalid device ACL')
  acl=list(dict.fromkeys(old+nodes));new='cgroup_device_acl = '+json.dumps(acl,indent=2)
- return text[:matches[0].start()]+new+text[matches[0].end():] if matches else text+'\n# Shared GPU rendering (winapps-yttrium-libvirt)\n'+new+'\n'
+ return text[:matches[0].start()]+new+text[matches[0].end():] if matches else text+'\n# Shared GPU rendering (WinTide)\n'+new+'\n'
 
 def share_xml(c):
  f=ET.Element('filesystem',{'type':'mount','accessmode':'passthrough'})
@@ -232,6 +232,31 @@ def guest(c,mode,args):
  if args.disable_hibernation:params+=' -DisableHibernation'
  runtime.guest_ps(c,'& {\n'+script+'\n}'+params,timeout=900)
 
+def build_windowed_helper():
+ if os.geteuid()==0:raise RuntimeError('Build the helper as the desktop user, never root')
+ source=ROOT/'guest/windowed-helper'
+ show_run('cargo','test','--locked',cwd=source)
+ show_run('cargo','build','--locked','--release','--target','x86_64-pc-windows-gnu',cwd=source)
+ print('Windows helper:',source/'target/x86_64-pc-windows-gnu/release/winapps-windowed.exe')
+
+def install_windowed_helper(c,args,remove=False):
+ if os.geteuid()!=0:raise RuntimeError('Helper installation requires sudo access to system libvirt/QGA')
+ if not args.windows_user:raise RuntimeError('--windows-user is required')
+ quoted=lambda s:"'"+str(s).replace("'","''")+"'"
+ params=' -WindowsUser '+quoted(args.windows_user)
+ if remove:params+=' -Uninstall'
+ else:
+  binary=pathlib.Path(args.helper_binary) if args.helper_binary else ROOT/'guest/windowed-helper/target/x86_64-pc-windows-gnu/release/winapps-windowed.exe'
+  data=binary.read_bytes()
+  if not data.startswith(b'MZ') or len(data)>5*1024*1024:raise RuntimeError('Expected a Windows helper executable smaller than 5 MiB')
+  directory=r'C:\ProgramData\WinApps-Yttrium-Setup'
+  runtime.guest_ps(c,'New-Item -ItemType Directory -Force -Path '+quoted(directory)+' | Out-Null')
+  destination=directory+r'\winapps-windowed-upload.exe'
+  runtime.guest_write(c,destination,data)
+  params+=' -BinaryPath '+quoted(destination)
+ script=(ROOT/'guest/Install-WindowedHelper.ps1').read_text()
+ runtime.guest_ps(c,'& {\n'+script+'\n}'+params)
+
 def install_client(c,args):
  if os.getuid()!=c['uid']:raise RuntimeError('Install client as desktop_user')
  src=pathlib.Path(c['work_dir'])/'sources/winapps'
@@ -268,6 +293,7 @@ def install_client(c,args):
  print('Isolated WinApps profile installed. VM must be running. Test manual Notepad as shown in README.')
  print('Discover installed apps: sudo ./setup.sh --config CONFIG discover')
  print('Then generate entries: ./setup.sh --config CONFIG launchers')
+ print('Optional windowed startup: build-windowed-helper, then sudo install-windowed-helper --windows-user USER (see docs/winapps.md).')
 
 def discover(c):
  if os.geteuid()!=0:raise RuntimeError('Discovery requires system QGA access; run with sudo')
@@ -308,7 +334,8 @@ def launchers(c):
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',required=True);p.add_argument('--plan-dir',default=str(ROOT/'local-plan'))
- p.add_argument('command',choices=['doctor','build','plan','apply-host','guest','install-client','discover','launchers','start','stop','share','restore-mounts','rollback-host'])
+ p.add_argument('command',choices=['doctor','build','plan','apply-host','guest','install-client','discover','launchers','start','stop','share','restore-mounts','rollback-host','build-windowed-helper','install-windowed-helper','remove-windowed-helper'])
+ p.add_argument('--helper-binary',help='Path to a locally built winapps-windowed.exe (optional)')
  p.add_argument('--jobs',type=int,default=min(os.cpu_count() or 4,12));p.add_argument('--guest-mode',choices=['rdp','yttrium','share'],default='rdp');p.add_argument('--windows-user');p.add_argument('--enable-test-signing',action='store_true');p.add_argument('--disable-hibernation',action='store_true')
  a=p.parse_args();c=config(a.config);out=pathlib.Path(a.plan_dir).resolve()
  if a.command=='doctor':doctor(c)
@@ -317,6 +344,8 @@ def main():
  elif a.command=='apply-host':apply_host(c,out)
  elif a.command=='guest':guest(c,a.guest_mode,a)
  elif a.command=='install-client':install_client(c,a)
+ elif a.command=='build-windowed-helper':build_windowed_helper()
+ elif a.command in ['install-windowed-helper','remove-windowed-helper']:install_windowed_helper(c,a,a.command=='remove-windowed-helper')
  elif a.command=='discover':discover(c)
  elif a.command=='launchers':launchers(c)
  elif a.command=='rollback-host':
