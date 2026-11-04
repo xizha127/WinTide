@@ -34,6 +34,8 @@ flowchart LR
 
 *Architecture illustration, not a recorded demo. No personal desktop screenshots or account data are bundled.*
 
+WinTide grew out of frustration with the WinApps + xfreerdp experience on Hyprland. The goal is useful, reproducible integration for anyone bringing Windows apps into Linux, with SDL/Wayland fixes that are not tied to Hyprland. Hyprland is our tested starting point; other Wayland compositors still need validation.
+
 ## What WinTide brings
 
 | Implementation | What it does for you |
