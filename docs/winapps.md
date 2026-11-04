@@ -19,7 +19,7 @@ For a manual app:
 winapps-yttrium manual 'C:\Windows\System32\notepad.exe'
 ```
 
-For standalone Explorer, `guest/Explorer-Broker.ps1` documents the working broker approach: start/reuse a folder window, restore it, and keep the RemoteApp process alive until the folder windows close. Avoid starting competing Explorer connections on repeated clicks. The integration installer creates its broker launcher separately; no arbitrary Windows desktop windows are closed.
+For standalone Explorer, `guest/Explorer-Broker.ps1` documents the working broker approach: open a new This PC window on every launch and keep that launch process alive until its new window closes. Concurrent launches serialize window discovery, and existing folder windows are neither restored nor closed. The integration installer creates its broker launcher separately; no arbitrary Windows desktop windows are closed.
 
 The patched client is the SDL3 `sdl-freerdp` built from FreeRDP3.32.2, not a differently named system binary. RemoteApps use `/gdi:sw -decorations +dynamic-resolution`; do not silently switch to `/gdi:hw` or `/multimon`, which regressed the reference setup. FFmpeg/swscale are disabled in this build to avoid the observed distro ABI conflict; this is not an optimal multimedia-codec preset for all hosts.
 
@@ -43,7 +43,7 @@ additional app does not terminate the existing session.
 The first connection owns display options, redirected drives, audio and the
 compositor app class. Later launches reuse those resources, so individual app-class
 icon grouping is not preserved and a later `/drive:` option cannot add a new drive.
-The existing Explorer broker reuses a folder window if one is already open.
+Each Explorer broker launch creates a new folder window, even if Explorer is already open.
 Full-desktop launches remain separate and can still replace a RemoteApp session.
 After upgrading an already-running older client, reconnect once to activate reuse.
 For an existing installation, set the environment variable in its launcher wrapper;

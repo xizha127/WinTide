@@ -56,3 +56,7 @@ c++ -std=c++17 -Wall -Wextra -Werror -Wno-deprecated-declarations \
 
 The launch socket is opt-in and Linux-only. Full-desktop session switching and
 per-app redirection changes are not part of this behavior.
+
+Explorer new-window behavior was verified with two consecutive launches: the
+window count increased from one to two to three, retaining the original window
+and the same RDP client PID. The user confirmed the behavior.
