@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Run in the same interactive RDP session as the helper, never directly via SSH.
 [CmdletBinding()]
-param([string]$ReportPath=(Join-Path $env:LOCALAPPDATA 'WinApps\windowed-helper-verification.json'))
+param([string]$ReportPath=(Join-Path $env:LOCALAPPDATA 'wintide\windowed-helper-verification.json'))
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -22,19 +22,19 @@ function Pump([int]$milliseconds) {
 }
 function New-CheckWindow {
  $window=New-Object Windows.Forms.Form
- $window.Text='WinApps windowed helper verification'
+ $window.Text='WinTide windowed helper verification'
  $window.Size=New-Object Drawing.Size(800,500)
  return $window
 }
 $f=$null
 try {
  $session=(Get-Process -Id $PID).SessionId
- $helpers=@(Get-Process winapps-windowed | Where-Object SessionId -eq $session)
+ $helpers=@(Get-Process wintide-windowed | Where-Object SessionId -eq $session)
  Check 'helper is in this interactive session' ($helpers.Count -eq 1)
  if ($helpers.Count -eq 1) {
   Start-Process -FilePath $helpers[0].Path
   Pump 400
-  Check 'repeated launch does not create a second helper' (@(Get-Process winapps-windowed | Where-Object SessionId -eq $session).Count -eq 1)
+  Check 'repeated launch does not create a second helper' (@(Get-Process wintide-windowed | Where-Object SessionId -eq $session).Count -eq 1)
  }
  $f=New-CheckWindow
  $f.WindowState='Maximized'
@@ -67,7 +67,7 @@ try {
  $f.FormBorderStyle='None'
  $monitor=[Windows.Forms.Screen]::PrimaryScreen.Bounds
  $f.Bounds=$monitor
- $logPath=Join-Path $env:LOCALAPPDATA "WinApps\windowed-helper-$session.log"
+ $logPath=Join-Path $env:LOCALAPPDATA "wintide\windowed-helper-$session.log"
  $logLines=@(Get-Content $logPath).Count
  $f.Show()
  $fullscreenHandle=$f.Handle.ToInt64()

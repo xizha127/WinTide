@@ -16,17 +16,20 @@ $config = Join-Path $root 'sshd_config'
 if (-not (Test-Path $config)) {
     Copy-Item "$env:WINDIR\System32\OpenSSH\sshd_config_default" $config
 }
-$backup = "$config.pre-winapps"
-if (-not (Test-Path $backup)) { Copy-Item $config $backup }
+$backup = "$config.pre-wintide"
 $text = Get-Content $config -Raw
-$text = [regex]::Replace($text, '(?ms)^# BEGIN WINAPPS\r?\n.*?^# END WINAPPS\r?\n', '')
+if ((Test-Path "$config.pre-winapps") -or $text -match '(?m)^# BEGIN WINAPPS\r?$') {
+    throw 'Legacy SSH setup detected. Migrate its original backup and managed configuration block before running WinTide setup.'
+}
+if (-not (Test-Path $backup)) { Copy-Item $config $backup }
+$text = [regex]::Replace($text, '(?ms)^# BEGIN WINTIDE\r?\n.*?^# END WINTIDE\r?\n', '')
 $block = @"
-# BEGIN WINAPPS
+# BEGIN WINTIDE
 PubkeyAuthentication yes
 PasswordAuthentication no
 AuthenticationMethods publickey
 AllowUsers $UserName
-# END WINAPPS
+# END WINTIDE
 "@
 [IO.File]::WriteAllText($config, $block + "`r`n" + $text, (New-Object Text.UTF8Encoding $false))
 $keys = Join-Path $root 'administrators_authorized_keys'

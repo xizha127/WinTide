@@ -82,7 +82,10 @@ chmod 600 local-config.json
 
 Then follow the [complete setup guide](docs/getting-started.md) for guest preparation, plan review, host integration and app launchers. Building alone does not configure the VM.
 
-Existing installations keep their `winapps-yttrium` command, profile and service names for compatibility. These compatibility names also remain in newly generated launchers and services; the build/cache defaults use `wintide`.
+New installations use `wintide` for commands, profiles, services and state paths,
+including `C:\ProgramData\wintide` in Windows. Existing deployments need an explicit
+migration; updating this checkout does not rename a running installation. See
+[installation paths](docs/getting-started.md#installation-paths).
 
 ## Choose the right storage path
 

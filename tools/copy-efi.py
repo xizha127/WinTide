@@ -13,7 +13,7 @@ def main():
  with out.open('xb') as f:f.truncate(512*1024*1024)
  out.chmod(0o600)
  subprocess.run(['mkfs.vfat','-F','32','-n','VM_EFI',str(out)],check=True)
- with tempfile.TemporaryDirectory(prefix='winapps-private-efi-') as tmp:
+ with tempfile.TemporaryDirectory(prefix='wintide-private-efi-') as tmp:
   subprocess.run(['mount','-o','loop',str(out),tmp],check=True)
   try:
    dest=pathlib.Path(tmp);shutil.copytree(source/'EFI/Microsoft',dest/'EFI/Microsoft',copy_function=shutil.copyfile)

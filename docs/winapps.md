@@ -2,7 +2,7 @@
 
 `install-client` fetches no account data from the existing host setup. It takes the pinned upstream WinApps core already fetched by `build`, preserves its source copyright notices, and generates an isolated copy locally. It changes only profile/app-data/source paths and the debug helper's return status. That generated third-party core is not committed or redistributed in this repository.
 
-The profile lives in `~/.config/winapps-yttrium/`; app data lives in `~/.local/share/winapps-yttrium/`; the command is `~/.local/bin/winapps-yttrium`. Existing Docker configuration, auto-start policy, app data, and desktop files are left unchanged. If old and new launchers coexist, disable the old entries manually after making a backup. Stopping a Docker VM is not part of this installer.
+The profile lives in `~/.config/wintide/`; app data lives in `~/.local/share/wintide/`; the command is `~/.local/bin/wintide`. Existing Docker configuration, auto-start policy, app data, and desktop files are left unchanged. If old and new launchers coexist, disable the old entries manually after making a backup. Stopping a Docker VM is not part of this installer.
 
 After installing the client profile:
 
@@ -16,7 +16,7 @@ Discovery queries HKLM/loaded-user App Paths registrations plus Notepad, checks 
 For a manual app:
 
 ```sh
-winapps-yttrium manual 'C:\Windows\System32\notepad.exe'
+wintide manual 'C:\Windows\System32\notepad.exe'
 ```
 
 For standalone Explorer, `guest/Explorer-Broker.ps1` documents the working broker approach: open a new This PC window on every launch and keep that launch process alive until its new window closes. Concurrent launches serialize window discovery, and existing folder windows are neither restored nor closed. The integration installer creates its broker launcher separately; no arbitrary Windows desktop windows are closed.

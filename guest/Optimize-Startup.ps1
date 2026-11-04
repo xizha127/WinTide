@@ -14,7 +14,7 @@ if (!$WindowsUser) {throw 'Specify the local Windows username.'}
 $sid=(Get-LocalUser $WindowsUser).SID.Value
 $profile=(Get-CimInstance Win32_UserProfile | Where-Object SID -eq $sid).LocalPath
 if (!$profile -or !(Test-Path "Registry::HKEY_USERS\$sid")) {throw 'Sign in to that user before inspecting startup entries.'}
-$keep='(?i)qemu|spice|virtio|blnsvr|SecurityHealth|Windows Defender'
+$keep='(?i)qemu|spice|virtio|blnsvr|SecurityHealth|Windows Defender|wintide|winapps-windowed'
 $entries=@();$files=@();$tasks=@()
 foreach($key in @('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run','Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run',"Registry::HKEY_USERS\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Run")) {
  if (!(Test-Path $key)) {continue}
@@ -30,7 +30,10 @@ foreach($folder in @("$profile\AppData\Roaming\Microsoft\Windows\Start Menu\Prog
 $tasks=@(Get-ScheduledTask | Where-Object {$_.Settings.Enabled -and $_.TaskPath -notlike '\Microsoft\*' -and $_.Triggers.CimClass.CimClassName -match 'Logon|Boot' -and (($_.Actions.Execute -join ';') -notmatch ($keep+'|MicrosoftEdgeUpdate'))})
 [pscustomobject]@{RunEntries=$entries.Name;StartupFiles=$files.FullName;ScheduledTasks=$tasks.TaskName} | Format-List
 if ($Mode -eq 'Preview') {Write-Output 'Preview only; no changes made.';return}
-$Backup='C:\ProgramData\WinApps-Yttrium-Setup\startup-'+(Get-Date -Format yyyyMMdd-HHmmss)
+if (Test-Path -LiteralPath 'C:\ProgramData\WinApps-Yttrium-Setup') {
+ throw 'Legacy setup state detected. Migrate its original backups before applying WinTide startup changes; see docs/getting-started.md.'
+}
+$Backup='C:\ProgramData\wintide\startup-'+(Get-Date -Format yyyyMMdd-HHmmss)
 New-Item -ItemType Directory $Backup | Out-Null
 Export-Clixml -InputObject @($entries) "$Backup\run.xml"
 $records=@();$taskRecords=@();$i=0

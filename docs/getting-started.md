@@ -35,7 +35,7 @@ Use an unprivileged desktop account for the build. Root is needed only for syste
 
    ```sh
    ./setup.sh --config local-config.json plan
-   # Review local-plan/domain.yttrium.xml and local-plan/config.json.
+   # Review local-plan/domain.wintide.xml and local-plan/config.json.
    sudo ./setup.sh --config local-config.json apply-host
    sudo ./setup.sh --config local-config.json start
    ```
@@ -46,18 +46,43 @@ Use an unprivileged desktop account for the build. Root is needed only for syste
 
    ```sh
    ./setup.sh --config local-config.json install-client --windows-user YOUR_LOCAL_WINDOWS_USER
-   winapps-yttrium manual 'C:\Windows\System32\notepad.exe'
+   wintide manual 'C:\Windows\System32\notepad.exe'
    sudo ./setup.sh --config local-config.json discover
    ./setup.sh --config local-config.json launchers
    ```
 
    The password is entered interactively and stored locally with mode `0600`, read through FreeRDP askpass, never put on its command line. Existing Docker WinApps profiles/launchers are not modified. Launcher discovery uses Windows executable registrations and only generates entries for existing files; see [desktop integration](winapps.md).
 
-## Installation paths and compatibility names
+## Installation paths
 
-New installations use `~/.local/opt/wintide` for built components and `~/.cache/wintide` for source/build files, as shown in the example config. These paths remain configurable; existing local configs keep their explicitly selected paths.
+| Purpose | Path / name |
+|---|---|
+| Built components / build cache | `~/.local/opt/wintide` / `~/.cache/wintide` (configurable) |
+| Launcher | `~/.local/bin/wintide` |
+| Profile / app data | `~/.config/wintide/` / `~/.local/share/wintide/` |
+| Installed host runtime | `/etc/wintide/DOMAIN/` |
+| Host rollback backups | `/var/lib/wintide/DOMAIN/` |
+| Transient mount state | `/run/wintide/DOMAIN/` |
+| Optional share service | `wintide-DOMAIN-share.service` |
+| Windows setup / rollback state | `C:\ProgramData\wintide` |
+| Windows startup backups | `C:\ProgramData\wintide\startup-TIMESTAMP` |
+| Optional Windows helper | `%ProgramData%\wintide\windowed-helper\wintide-windowed.exe` |
+| Optional Windows helper task | `WinTide-Windowed-<SID>` |
+| Windows helper logs | `%LOCALAPPDATA%\wintide` |
 
-The project was previously named `winapps-yttrium-libvirt`. Generated commands, profile directories, services and guest backup paths still use the legacy `winapps-yttrium` naming to avoid abandoning credentials, backups or installed launchers. The repository rename does not require reinstalling or changing your VM.
+Upstream-owned paths, such as the Windows VirtIO drivers, WinFsp, OpenSSH and
+libvirt hooks directory, retain the names their tools require. Source checkout
+keys and upstream repository URLs retain the actual project names.
+Legacy names occur only in detection checks that protect existing installations;
+they are never used as destinations for a new installation.
+
+An older installed deployment is not migrated by changing this checkout. The
+installer refuses detected legacy setup state rather than creating a competing
+profile or taking new rollback snapshots of an already-modified installation.
+Keep that deployment's original checkout and backups for rollback. Migrate host
+hooks, services, guest tasks, credentials and backup state together during a
+planned shutdown; do not simply rename a directory while Windows or a helper is
+running. An automatic migration command is not provided.
 
 ## Daily use
 
@@ -65,7 +90,7 @@ Run these from the checkout with your existing local configuration:
 
 ```sh
 sudo ./setup.sh --config local-config.json start
-winapps-yttrium manual 'C:\Windows\System32\notepad.exe'
+wintide manual 'C:\Windows\System32\notepad.exe'
 # Optional, only when a VirtioFS directory is configured and mounted:
 sudo ./setup.sh --config local-config.json share
 # After saving and closing Windows work:

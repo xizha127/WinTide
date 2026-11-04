@@ -100,7 +100,7 @@ def share(c,root):
  guest_ps(c,"Start-Service VirtioFsSvc -ErrorAction Stop; if (!(Test-Path "+c['share_letter']+":\\)) { exit 1 }")
 def main():
  config=pathlib.Path(sys.argv[1]);c=json.loads(config.read_text());mode=sys.argv[2];args=sys.argv[3:];root=config.parent
- transient=pathlib.Path('/run/winapps-yttrium')/c['domain']
+ transient=pathlib.Path('/run/wintide')/c['domain']
  if mode=='qemu':
   for i,a in enumerate(args[:-1]):
    if a=='-accel' and args[i+1].split(',')[0]=='kvm' and c.get('honor_guest_pat') and 'honor-guest-pat=' not in args[i+1]:args[i+1]+=',honor-guest-pat=on'

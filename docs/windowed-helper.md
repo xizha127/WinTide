@@ -42,7 +42,7 @@ build on Windows with `cargo build --locked --release` in
 `guest/windowed-helper`, then run the installer in an elevated PowerShell:
 
 ```powershell
-.\guest\Install-WindowedHelper.ps1 -BinaryPath .\guest\windowed-helper\target\release\winapps-windowed.exe -WindowsUser USER
+.\guest\Install-WindowedHelper.ps1 -BinaryPath .\guest\windowed-helper\target\release\wintide-windowed.exe -WindowsUser USER
 ```
 
 The scheduled task runs as that user with an interactive token, without a saved
@@ -53,9 +53,9 @@ is inactive on the native console. Already visible windows are included when
 the helper first starts. No per-app launchers need modification.
 
 Installation starts it immediately if the user is signed in. Otherwise it
-starts at the next RDP/WinApps logon. The task is named `WinApps-Windowed-<SID>`;
-the binary is under `%ProgramData%\WinApps-Yttrium-Setup\windowed-helper`.
-Diagnostics under `%LOCALAPPDATA%\WinApps\windowed-helper-<session>.log` record
+starts at the next RDP/WinApps logon. The task is named `WinTide-Windowed-<SID>`;
+the binary is under `%ProgramData%\wintide\windowed-helper`.
+Diagnostics under `%LOCALAPPDATA%\wintide\windowed-helper-<session>.log` record
 only version/session and restore HWND/PID/request status, not titles, document
 paths or credentials. A queued restore is not proof that the app accepted it.
 
@@ -67,7 +67,7 @@ sudo ./setup.sh --config local-config.json remove-windowed-helper --windows-user
 
 Or use `Install-WindowedHelper.ps1 -WindowsUser USER -Uninstall` in Windows.
 Uninstall disables the task and stops its helper instances; the binary and
-diagnostics remain for inspection. `winapps-windowed.exe --stop` can also stop
+diagnostics remain for inspection. `wintide-windowed.exe --stop` can also stop
 the helper in the caller's own interactive session.
 
 For behavioral verification, run `guest/Test-WindowedHelper.ps1` in the same
@@ -75,6 +75,6 @@ interactive RDP session (not directly via SSH/QGA session 0). It opens disposabl
 WinForms windows and checks actual Windows maximization state for remembered
 startup, delayed startup, and subsequent manual maximize; it also checks
 deduplication and that fullscreen receives no helper restore request. Results
-are written to `%LOCALAPPDATA%\WinApps\windowed-helper-verification.json`.
+are written to `%LOCALAPPDATA%\wintide\windowed-helper-verification.json`.
 RemoteApp's Linux compositor can independently resize borderless test windows;
 the fullscreen check does not claim exclusive fullscreen or game compatibility.

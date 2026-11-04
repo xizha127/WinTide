@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Run elevated after restoring the old libvirt XML and booting with its old graphics.
 $ErrorActionPreference='Stop'
-$base='C:\ProgramData\WinApps-Yttrium-Setup'
+$base='C:\ProgramData\wintide'
 if (!(Test-Path "$base\before.bcd")) {throw 'Original setup backup not found; refusing to guess.'}
 $devices=Get-PnpDevice -Class Display -ErrorAction SilentlyContinue | Where-Object FriendlyName -like '*Yttrium*'
 foreach($device in $devices) {Disable-PnpDevice -InstanceId $device.InstanceId -Confirm:$false -ErrorAction SilentlyContinue}

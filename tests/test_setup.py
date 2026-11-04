@@ -96,30 +96,54 @@ class SetupTests(unittest.TestCase):
   with patch.object(setup.os,'geteuid',return_value=0),patch.object(setup,'virsh',return_value='running\n'),patch.object(setup,'write') as w:
    with self.assertRaisesRegex(RuntimeError,'Shut Windows'):setup.apply_host(C,pathlib.Path('/missing'))
    w.assert_not_called()
+ def test_apply_preserves_legacy_state_and_existing_rollback_backups(self):
+  for existing in ['/etc/winapps-yttrium/testvm','/var/lib/winapps-yttrium/testvm','/var/lib/wintide/testvm']:
+   with self.subTest(existing=existing),patch.object(setup.os,'geteuid',return_value=0),patch.object(setup,'virsh',return_value='shut off\n'),patch.object(pathlib.Path,'exists',autospec=True,side_effect=lambda p:str(p)==existing),patch.object(setup,'plan') as plan,patch.object(setup,'write') as write:
+    with self.assertRaises(RuntimeError):setup.apply_host(C,pathlib.Path('/unused'))
+    plan.assert_not_called();write.assert_not_called()
  def test_share_xml_does_not_force_always_cache(self):
   text=setup.share_xml(C);self.assertNotIn('always',text);self.assertNotIn('<lock',text)
 if __name__=='__main__':unittest.main()
 
 class ClientTests(unittest.TestCase):
+ def test_legacy_client_refused_before_writes_or_password_prompt(self):
+  from types import SimpleNamespace
+  for relative in ['.config/winapps-yttrium','.local/share/winapps-yttrium','.local/bin/winapps-yttrium']:
+   with self.subTest(relative=relative),tempfile.TemporaryDirectory() as tmp:
+    home=pathlib.Path(tmp);legacy=home/relative;legacy.parent.mkdir(parents=True)
+    legacy.write_text('existing state')
+    with patch.object(setup.os,'getuid',return_value=1000),patch.object(setup,'write') as write,patch.object(setup.getpass,'getpass') as password:
+     with self.assertRaisesRegex(RuntimeError,'Legacy client'):setup.install_client({**C,'home':str(home)},SimpleNamespace(windows_user='example'))
+     write.assert_not_called();password.assert_not_called()
+    self.assertEqual(legacy.read_text(),'existing state')
+    self.assertFalse((home/'.config/wintide').exists())
  def test_generated_profile_and_broker_preserve_quoting(self):
   from types import SimpleNamespace
   with tempfile.TemporaryDirectory() as tmp:
    home=pathlib.Path(tmp);src=home/'work/sources/winapps';(src/'bin').mkdir(parents=True)
    (src/'bin/winapps').write_text('#!/bin/bash\nreadonly APPDATA_PATH="${HOME}/.local/share/winapps"\nreadonly CONFIG_PATH="${HOME}/.config/winapps/winapps.conf"\nreadonly SYS_APP_PATH="/usr/local/share/winapps"\n')
+   with (src/'bin/winapps').open('a') as fixture:
+    fixture.write('source "$CONFIG_PATH"\nprintf "%s\\n" "$APPDATA_PATH" "$SYS_APP_PATH" "$WINTIDE_SESSION_REUSE" "$RDP_FLAGS" "$1"\n')
    c={**C,'home':str(home),'work_dir':str(home/'work')}
    with patch.object(setup.os,'getuid',return_value=1000),patch.object(setup,'run',return_value=subprocess.CompletedProcess([],0,setup.LOCK['winapps']['commit'],'')),patch.object(setup.getpass,'getpass',return_value='test-only-fixture'):
     setup.install_client(c,SimpleNamespace(windows_user='example-user'))
     setup.launchers(c)
-   self.assertIn('export WINTIDE_SESSION_REUSE=1', (home/'.local/bin/winapps-yttrium').read_text())
-   profile=home/'.config/winapps-yttrium/profile.conf'
+   self.assertIn('export WINTIDE_SESSION_REUSE=1', (home/'.local/bin/wintide').read_text())
+   launched=subprocess.run([str(home/'.local/bin/wintide'),'test argument'],capture_output=True,text=True,check=True)
+   lines=launched.stdout.splitlines()
+   self.assertEqual(lines[:3],[str(home/'.local/share/wintide'),str(src),'1'])
+   self.assertIn('/wm-class:wintide',lines[3]);self.assertEqual(lines[4],'test argument')
+   profile=home/'.config/wintide/profile.conf'
    self.assertEqual(profile.stat().st_mode & 0o777,0o600)
    self.assertNotIn('test-only-fixture',profile.read_text())
    self.assertIn('RDP_ASKPASS=',profile.read_text())
-   info=home/'.local/share/winapps-yttrium/apps/explorer-broker/info'
+   info=home/'.local/share/wintide/apps/explorer-broker/info'
    result=subprocess.run(['bash','-c','source "$1"; printf "%s" "$WIN_EXECUTABLE"','_',str(info)],capture_output=True,text=True,check=True)
    self.assertEqual(result.stdout,'C:\\Windows\\System32\\wscript.exe')
    desktop=next((home/'.local/share/applications').glob('*.desktop')).read_text()
    self.assertIn('explorer-broker.vbs',desktop)
+   self.assertIn(str(home/'.local/bin/wintide'),desktop)
+   self.assertTrue((home/'.local/share/applications/wintide-explorer-broker.desktop').exists())
 
 class PermissionGuardTests(unittest.TestCase):
  def test_guarded_backend_is_selected_without_changing_source_or_tag(self):

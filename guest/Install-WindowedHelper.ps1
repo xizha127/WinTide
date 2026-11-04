@@ -8,9 +8,9 @@ param(
 $ErrorActionPreference='Stop'
 $account=New-Object Security.Principal.NTAccount($WindowsUser)
 $sid=$account.Translate([Security.Principal.SecurityIdentifier]).Value
-$taskName='WinApps-Windowed-'+$sid
-$directory=Join-Path $env:ProgramData 'WinApps-Yttrium-Setup\windowed-helper'
-$destination=Join-Path $directory 'winapps-windowed.exe'
+$taskName='WinTide-Windowed-'+$sid
+$directory=Join-Path $env:ProgramData 'wintide\windowed-helper'
+$destination=Join-Path $directory 'wintide-windowed.exe'
 
 if ($Uninstall) {
  $task=Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -22,8 +22,14 @@ if ($Uninstall) {
  Write-Output 'Windowed helper disabled. Application windows and RDP connections were not closed.'
  return
 }
+# Do not run both generations of the helper: they use different session mutexes.
+if ((Test-Path -LiteralPath (Join-Path $env:ProgramData 'WinApps-Yttrium-Setup')) -or
+    (Get-ScheduledTask -TaskName ('WinApps-Windowed-'+$sid) -ErrorAction SilentlyContinue) -or
+    (Get-Process -Name 'winapps-windowed' -ErrorAction SilentlyContinue)) {
+ throw 'Legacy helper/setup detected. Uninstall the previous helper and migrate its setup state first; see docs/getting-started.md.'
+}
 if (!$BinaryPath -or !(Test-Path -LiteralPath $BinaryPath -PathType Leaf)) {
- throw 'Supply -BinaryPath pointing to the locally built winapps-windowed.exe.'
+ throw 'Supply -BinaryPath pointing to the locally built wintide-windowed.exe.'
 }
 $binary=(Resolve-Path -LiteralPath $BinaryPath).Path
 $stream=[IO.File]::OpenRead($binary)

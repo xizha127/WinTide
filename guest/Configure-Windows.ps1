@@ -13,7 +13,11 @@ param(
 $ErrorActionPreference='Stop'
 $principal=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {throw 'Run elevated inside the VM.'}
-$base='C:\ProgramData\WinApps-Yttrium-Setup'
+$base='C:\ProgramData\wintide'
+# Legacy name is used only to protect original rollback snapshots.
+if (Test-Path -LiteralPath 'C:\ProgramData\WinApps-Yttrium-Setup') {
+ throw 'Legacy setup state detected. Migrate the original backups and helper task together before running WinTide setup; see docs/getting-started.md.'
+}
 New-Item -ItemType Directory -Path $base -Force | Out-Null
 function Native-OK([string]$Label) {if ($LASTEXITCODE -notin 0,3010) {throw "$Label failed: $LASTEXITCODE"}}
 if ($Mode -eq 'rdp') {

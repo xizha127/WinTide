@@ -187,7 +187,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 "Run in the interactive Windows user session, not SSH/QGA session 0".into(),
             );
         }
-        let stop_name = wide(&format!(r"Local\WinAppsWindowedStop-{session}"));
+        let stop_name = wide(&format!(r"Local\WinTideWindowedStop-{session}"));
         if std::env::args().any(|a| a == "--stop") {
             let handle = OpenEventW(EVENT_MODIFY_STATE, 0, stop_name.as_ptr());
             if !handle.is_null() {
@@ -196,7 +196,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             return Ok(());
         }
-        let mutex_name = wide(&format!(r"Local\WinAppsWindowed-{session}"));
+        let mutex_name = wide(&format!(r"Local\WinTideWindowed-{session}"));
         let mutex = CreateMutexW(null(), 0, mutex_name.as_ptr());
         if mutex.is_null() {
             return Err(std::io::Error::last_os_error().into());
@@ -212,7 +212,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         let stop = Handle(stop);
         ResetEvent(stop.0);
-        let path = PathBuf::from(std::env::var("LOCALAPPDATA")?).join("WinApps");
+        let path = PathBuf::from(std::env::var("LOCALAPPDATA")?).join("wintide");
         fs::create_dir_all(&path)?;
         let path = path.join(format!("windowed-helper-{session}.log"));
         if fs::metadata(&path).is_ok_and(|m| m.len() > 65536) {
