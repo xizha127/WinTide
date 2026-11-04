@@ -117,6 +117,11 @@ def transform(xml,c,base):
  emulator.text=str(base/'qemu')
  for node in list(devices):
   if node.tag in ['graphics','video','redirdev'] or (node.tag=='channel' and node.get('type')=='spicevmc'):devices.remove(node)
+ # SPICE audio requires SPICE graphics, which the GTK shared-GPU path replaces.
+ # Keep the audio ID so existing sound-device references remain valid.
+ for audio in devices.findall('audio'):
+  if audio.get('type')=='spice':
+   ident=audio.get('id');audio.clear();audio.attrib.update({'id':ident,'type':'pulseaudio','serverName':f"unix:/run/user/{c['uid']}/pulse/native"})
  video=ET.SubElement(devices,'video');ET.SubElement(video,'model',{'type':'none'})
  if not devices.findall("./channel/target[@name='org.qemu.guest_agent.0']"):
   channel=ET.SubElement(devices,'channel',{'type':'unix'});ET.SubElement(channel,'target',{'type':'virtio','name':'org.qemu.guest_agent.0'})
@@ -242,7 +247,7 @@ def apply_host(c,out):
 
 def guest(c,mode,args):
  if os.geteuid()!=0:raise RuntimeError('Guest setup requires sudo access to system libvirt/QGA')
- if mode=='yttrium' and not args.enable_test_signing:raise RuntimeError('Use --enable-test-signing after reading docs/security.md')
+ if mode in ['yttrium','activate-yttrium'] and not args.enable_test_signing:raise RuntimeError('Use --enable-test-signing after reading docs/security.md')
  quoted=lambda s:"'"+str(s).replace("'","''")+"'"
  if mode=='ssh':
   if not args.windows_user or not args.ssh_key:raise ValueError('SSH setup requires --windows-user and --ssh-key (private key path; only its .pub file is sent)')
@@ -253,7 +258,7 @@ def guest(c,mode,args):
  script=(ROOT/'guest/Configure-Windows.ps1').read_text()
  params=' -Mode '+quoted(mode)+' -HostAddress '+quoted(c.get('host_address','192.168.122.1'))+' -ShareTag '+quoted(c['share_tag'])+' -DriveLetter '+quoted(c['share_letter'])+f" -Owner '{c['uid']}:{c['gid']}'"
  if args.windows_user:params+=' -WindowsUser '+quoted(args.windows_user)
- if mode=='yttrium':params+=' -EnableTestSigning'
+ if mode in ['yttrium','activate-yttrium']:params+=' -EnableTestSigning'
  if args.disable_hibernation:params+=' -DisableHibernation'
  runtime.guest_ps(c,'& {\n'+script+'\n}'+params,timeout=900)
 
@@ -410,7 +415,7 @@ def launchers(c):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',required=True);p.add_argument('--plan-dir',default=str(ROOT/'local-plan'))
  p.add_argument('command',choices=['install','doctor','build','plan','apply-host','guest','install-client','install-command','discover','launchers','start','stop','share','restore-mounts','rollback-host','prepare-guest','wait-guest','shutdown-guest'])
- p.add_argument('--jobs',type=int,default=min(os.cpu_count() or 4,12));p.add_argument('--guest-mode',choices=['rdp','yttrium','share','ssh'],default='rdp');p.add_argument('--windows-user');p.add_argument('--enable-test-signing',action='store_true');p.add_argument('--disable-hibernation',action='store_true')
+ p.add_argument('--jobs',type=int,default=min(os.cpu_count() or 4,12));p.add_argument('--guest-mode',choices=['rdp','yttrium','activate-yttrium','verify-yttrium','share','ssh'],default='rdp');p.add_argument('--windows-user');p.add_argument('--enable-test-signing',action='store_true');p.add_argument('--disable-hibernation',action='store_true')
  p.add_argument('--plain',action='store_true');p.add_argument('--yes',action='store_true',help='accept the displayed setup plan and clean shutdown')
  p.add_argument('--skip-ssh',action='store_true');p.add_argument('--ssh-key');p.add_argument('--ssh-config');p.add_argument('--ssh-host')
  p.add_argument('--password-file',help='read the RDP password from a private desktop-user-owned file instead of prompting')

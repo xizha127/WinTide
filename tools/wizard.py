@@ -12,6 +12,16 @@ from terminal_ui import Progress, logged_run
 from wintide import atomic_json
 
 
+def authorize():
+    # sudo -v can require a password when command execution is NOPASSWD
+    # (for example, a mixed policy containing a few PASSWD exceptions).
+    if subprocess.run(['sudo','-n','true'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
+        return
+    if not sys.stdin.isatty():
+        raise RuntimeError('System authorization is required. Run setup in a terminal to authenticate with sudo.')
+    subprocess.run(['sudo','-v'],check=True)
+
+
 def guest_lifecycle(c, mode):
     import setup
     import runtime
@@ -44,7 +54,7 @@ def guest_lifecycle(c, mode):
             try:
                 runtime.agent(c,'guest-ping')
                 return
-            except (subprocess.SubprocessError,KeyError,ValueError):
+            except (subprocess.SubprocessError,KeyError,ValueError,RuntimeError):
                 pass
         time.sleep(2)
     raise RuntimeError('Timed out waiting for '+('clean shutdown; no force-stop performed' if mode=='shutdown-guest' else 'QEMU Guest Agent'))
@@ -123,7 +133,7 @@ def install(c, args):
         # A resumed setup may find Windows powered off; readiness is not a stale checkpoint.
         ready()
         options=['--guest-mode',mode,'--windows-user',args.windows_user]
-        if mode=='yttrium':
+        if mode in ['yttrium','activate-yttrium']:
             options+=['--enable-test-signing']
             if args.disable_hibernation:options+=['--disable-hibernation']
         if mode=='ssh':options+=['--ssh-key',args.ssh_key]
@@ -147,7 +157,10 @@ def install(c, args):
     stages += [('Install matching graphics driver',lambda:guest('yttrium'),False),
                ('Shut Windows down cleanly',lambda:command('shutdown-guest',root=True),False),
                ('Install guarded libvirt integration',lambda:command('apply-host',root=True),False),
-               ('Start Windows and wait for guest agent',ready,False)]
+               ('Start Windows and wait for guest agent',ready,False),
+               ('Activate matching graphics driver',lambda:guest('activate-yttrium'),False),
+               ('Restart Windows after driver activation',lambda:(command('shutdown-guest',root=True),ready()),False),
+               ('Verify active graphics driver',lambda:guest('verify-yttrium'),False)]
     if c.get('shared_directory'):
         stages += [('Configure optional file sharing',lambda:guest('share'),False)]
     stages += [('Install WinTide command and login profile',install_client,not args.password_file),
@@ -161,7 +174,7 @@ def install(c, args):
             command('plan')
     checkpoint.run('Generate reviewable VM plan',plan,progress)
     print('Review:',Path(args.plan_dir).resolve()/'domain.wintide.xml')
-    print('Setup installs the test-signed graphics driver, configures RDP'+(' and key-only SSH' if not args.skip_ssh else '')+', and shuts down/restarts Windows. Save Windows work first.')
+    print('Setup installs and selects the test-signed graphics driver, configures RDP'+(' and key-only SSH' if not args.skip_ssh else '')+', and restarts Windows for the host and driver changes. Save Windows work first.')
     if not args.yes:
         if not sys.stdin.isatty():raise RuntimeError('Review the plan, then rerun with --yes --enable-test-signing (and --disable-hibernation for physical disks).')
         if input('Apply this plan and enable Windows test signing? [y/N] ').strip().lower() not in ['y','yes']:
@@ -175,7 +188,7 @@ def install(c, args):
         def operation(action=action,name=name,interactive=interactive):
             if name not in ['Build pinned host components','Prepare SSH key','Install WinTide command and login profile','Verify Windows connections']:
                 # Authenticate outside the spinner so sudo's prompt stays visible.
-                subprocess.run(['sudo','-v'],check=True)
+                authorize()
             with progress.step(name,animate=not interactive):action()
         checkpoint.run(name,operation,progress)
     installed=setup.client_paths(c)[2].name

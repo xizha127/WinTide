@@ -6,6 +6,11 @@ import setup,runtime
 XML='''<domain type="kvm"><name>testvm</name><cpu mode="custom"><model>Skylake-Client-IBRS</model></cpu><devices><emulator>/usr/bin/qemu-system-x86_64</emulator><disk type="block"><source dev="/dev/example"/></disk><graphics type="spice"/><video><model type="qxl"/></video><channel type="spicevmc"/><interface type="network"><source network="default"/></interface></devices></domain>'''
 C={'domain':'testvm','prefix':'/opt/test','uid':1000,'gid':1000,'tpm_gid':973,'home':'/example','hostmem_bytes':4294967296,'display':':0','wayland_display':'wayland-1','physical_disks':[],'uri':'qemu:///system','shared_directory':'/mnt/test','shared_uuid':'expected','share_tag':'host-games','share_letter':'H'}
 class SetupTests(unittest.TestCase):
+ def test_lost_guest_result_never_replays_the_command(self):
+  with patch.object(runtime,'agent',side_effect=[{'pid':42},RuntimeError('result unavailable')]) as agent:
+   with self.assertRaisesRegex(RuntimeError,'inspect Windows before retrying'):
+    runtime.guest_ps(C,'Write-Output harmless')
+  self.assertEqual([call.args[1] for call in agent.call_args_list],['guest-exec','guest-exec-status'])
  def test_image_mode_requires_explicit_opt_in(self):
   from types import SimpleNamespace
   with tempfile.TemporaryDirectory() as tmp:
@@ -67,6 +72,14 @@ class SetupTests(unittest.TestCase):
  def test_existing_custom_args_not_overwritten(self):
   xml=XML.replace('<domain type="kvm">','<domain type="kvm" xmlns:qemu="'+setup.Q+'">').replace('</domain>','<qemu:commandline/></domain>')
   with self.assertRaises(ValueError):setup.transform(xml,C,pathlib.Path('/etc/example'))
+ def test_spice_audio_is_converted_when_spice_graphics_are_removed(self):
+  xml=XML.replace('</devices>','<sound model="ich9"><audio id="1"/></sound><audio id="1" type="spice"/><audio id="2" type="none"/></devices>')
+  root=setup.ET.fromstring(setup.transform(xml,C,pathlib.Path('/etc/example')))
+  audio=root.find('./devices/audio[@id="1"]')
+  self.assertEqual(audio.get('type'),'pulseaudio')
+  self.assertEqual(audio.get('serverName'),'unix:/run/user/1000/pulse/native')
+  self.assertEqual(root.find('./devices/sound/audio').get('id'),'1')
+  self.assertEqual(root.find('./devices/audio[@id="2"]').get('type'),'none')
  def test_passthrough_requires_review(self):
   with self.assertRaises(ValueError):setup.transform(XML.replace('<devices>','<devices><hostdev/>'),C,pathlib.Path('/etc/example'))
  def test_acl_preserves_existing_is_idempotent(self):

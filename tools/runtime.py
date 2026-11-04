@@ -16,13 +16,20 @@ def mounts(disk):
 def agent(c,command,args=None):
  q={'execute':command}
  if args is not None:q['arguments']=args
- return json.loads(v(c,'qemu-agent-command',c['domain'],json.dumps(q),'--timeout','5').stdout)['return']
+ try:
+  response=run(['virsh','-c',c['uri'],'qemu-agent-command',c['domain'],json.dumps(q),'--timeout','15'],timeout=20)
+ except subprocess.CalledProcessError as e:
+  # Report the agent error, not the argv (which may contain an encoded script).
+  raise RuntimeError(f'Guest agent {command} failed: '+(e.stderr or 'no error detail').strip()) from e
+ return json.loads(response.stdout)['return']
 def guest_ps(c,script,timeout=120,quiet=False):
  encoded=base64.b64encode(script.encode('utf-16le')).decode()
  pid=agent(c,'guest-exec',{'path':'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe','arg':['-NoProfile','-NonInteractive','-EncodedCommand',encoded],'capture-output':True})['pid']
  deadline=time.monotonic()+timeout
  while time.monotonic()<deadline:
-  r=agent(c,'guest-exec-status',{'pid':pid})
+  try:r=agent(c,'guest-exec-status',{'pid':pid})
+  except (RuntimeError,subprocess.SubprocessError) as e:
+   raise RuntimeError(f'Lost result for guest process {pid}; inspect Windows before retrying to avoid duplicate work. {e}') from e
   if r['exited']:
    for field in ['out-data','err-data']:
     if r.get(field) and not quiet:print(base64.b64decode(r[field]).decode(errors='replace'))

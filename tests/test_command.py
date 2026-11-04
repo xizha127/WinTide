@@ -13,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 import wintide
 from terminal_ui import Progress, logged_run
-from wizard import Checkpoints
+from wizard import Checkpoints, authorize, guest_lifecycle
 
 
 class CommandTests(unittest.TestCase):
@@ -134,6 +134,21 @@ class CommandTests(unittest.TestCase):
 
 
 class SetupProgressTests(unittest.TestCase):
+    def test_boot_wait_retries_temporarily_unavailable_guest_agent(self):
+        import runtime
+        with patch('wizard.os.geteuid',return_value=0),patch.object(runtime,'agent',side_effect=[RuntimeError('agent not connected'),{}]) as agent,patch('wizard.time.sleep'):
+            guest_lifecycle({'domain':'testvm'},'wait-guest')
+        self.assertEqual(agent.call_count,2)
+
+    def test_passwordless_sudo_never_requests_password_validation(self):
+        with patch('wizard.subprocess.run',return_value=subprocess.CompletedProcess([],0)) as run:
+            authorize()
+        self.assertEqual([c.args[0] for c in run.call_args_list],[['sudo','-n','true']])
+
+    def test_unattended_setup_reports_missing_system_authorization(self):
+        with patch('wizard.subprocess.run',return_value=subprocess.CompletedProcess([],1)),patch('wizard.sys.stdin.isatty',return_value=False):
+            with self.assertRaisesRegex(RuntimeError,'Run setup in a terminal'):authorize()
+
     def test_plain_mode_has_real_counts_and_no_escape_sequences(self):
         output=io.StringIO();progress=Progress(2,plain=True,stream=output)
         with progress.step('One'):pass

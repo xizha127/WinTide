@@ -5,6 +5,7 @@ param(
     [switch]$InstallServer
 )
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 if ($PublicKey -notmatch '^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( .*)?$') { throw 'Expected an Ed25519 public key' }
 if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) {
     if (!$InstallServer) { throw 'Install OpenSSH Server first, or use -InstallServer' }

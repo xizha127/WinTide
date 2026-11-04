@@ -56,7 +56,70 @@ replacing its driver, credentials or launcher core. Live checks on 2026-11-04:
 
 The Python suite also checks SSH/RDP route separation, guarded-start failure,
 preservation of imported app metadata, private logs and named-profile isolation.
-These checks do not substitute for a fresh Windows installation test.
+The separate fresh Windows test below exercises installation as well.
+
+## Fresh Windows guest validation
+
+On 2026-11-04, [Quickemu](https://github.com/quickemu-project/quickemu)
+4.9.9 (`6d386de2c957c60bb8fce0c225a23fdd7df3994e`) was installed from
+upstream and used to install a disposable Windows 11 Enterprise Evaluation guest
+(build 26300). It used a standalone 64 GiB image, four vCPUs and 6 GiB RAM.
+After a clean shutdown, its image and UEFI variable store were imported into
+system libvirt, with QEMU Guest Agent working. This is the existing, bootable
+Windows VM prerequisite; Quickemu is validation tooling, not a WinTide dependency.
+
+The test used a separate prefix, named client profile and VM. The working physical
+Windows installation was not reconfigured. All pinned host components were built
+afresh, then the guided setup configured RemoteApps, key-only SSH, guarded host
+integration, guest graphics, app discovery and desktop entries.
+
+The run exposed and corrected:
+
+- Passwordless sudo policies where `sudo -v` still prompts for a password.
+- Certificate import failing under the guest agent's LocalSystem account; the
+  installer now uses `certutil` and checks its exit status.
+- A retained SPICE audio backend after changing the VM display; its existing
+  audio ID is preserved and the backend changed to host PulseAudio.
+- Driver staging leaving the display-only driver selected. Setup now explicitly
+  activates the matching Yttrium driver, restarts Windows, and checks its INF,
+  version and device status before reporting success.
+- Guest-agent readiness retries and clearer errors when a guest command result
+  is lost, so an unknown result does not silently cause command replay.
+
+Verified in the fresh guest:
+
+- Yttrium `100.2026.11.1` bound to the expected VirtIO GPU with device error zero.
+- Hardware Direct3D 11 device creation selected Yttrium; render-target clear and
+  readback returned RGBA `(255, 0, 0, 255)`, with process exit status zero.
+- Two Explorer launches produced separate tiled windows, preserving the first
+  window and SDL process; Settings opened tiled in that same process.
+- SSH authentication and commands worked without opening another graphical
+  connection. RDP and SSH connection checks passed.
+
+**Full-desktop rendering did not pass on this fresh build.** Bare
+`wintide-validation` started the VM, authenticated and created an active RDP
+session, but displayed black. Windows recorded repeated `dwm.exe` failures in
+`dwmcore.dll` with exception `0x889800c5`. This also occurred after a clean boot;
+it was not only a RemoteApp-to-desktop transition. Waking the host displays and
+trying the RDP8 graphics pipeline did not resolve it. The test profile was
+returned to its generated settings. The precise driver/OS cause remains
+unresolved; connectivity checks and a healthy GPU device alone do not establish
+a usable full desktop. No speculative graphics policy was applied to the working
+physical Windows installation.
+
+This was an iterative validation run: code fixes required reviewed checkpoint
+updates, and a partially applied host stage was inspected and completed manually
+while preserving its original rollback files. It was **not** an uninterrupted
+first-run success or a clean Linux host test. The final driver activation,
+restart and verification stages were subsequently exercised through the wizard.
+Physical disk ownership guards, optional VirtioFS and other GPU vendors were not
+retested in this image-backed guest.
+
+Quickget's automated Windows download was unavailable during testing, so an
+[official Microsoft evaluation ISO](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise)
+was used. Quickemu's disposable auto-login was disabled before RDP testing;
+an active console session can otherwise trigger a connection takeover prompt.
+WinTide does not change an existing installation's auto-login preferences.
 
 ## Repository checks
 

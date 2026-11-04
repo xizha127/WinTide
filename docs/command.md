@@ -24,6 +24,10 @@ sure `~/.local/bin` is on your `PATH`.
 Full-desktop login can switch the Windows session away from RemoteApps. Use
 `app`, rather than bare `wintide`, to add another application without replacing
 the current RemoteApp connection. SSH does not switch the graphical session.
+Full-desktop rendering also depends on the guest graphics stack: the fresh
+evaluation guest authenticated but displayed black with Windows compositor
+crashes. See [validation and limits](validation.md#fresh-windows-guest-validation).
+`--test` checks connectivity, not desktop rendering.
 
 Global options precede the command: `--plain` disables animation, `--timeout 180`
 changes startup/readiness timeouts, and `--config PATH` selects a client JSON.

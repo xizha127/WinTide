@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 [CmdletBinding()]
 param(
- [ValidateSet('rdp','yttrium','share')][string]$Mode,
+ [ValidateSet('rdp','yttrium','activate-yttrium','verify-yttrium','share')][string]$Mode,
  [string]$WindowsUser,
  [string]$HostAddress='192.168.122.1',
  [ValidatePattern('^[A-Za-z0-9_-]{1,36}$')][string]$ShareTag='host-games',
@@ -11,6 +11,7 @@ param(
  [switch]$DisableHibernation
 )
 $ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
 $principal=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {throw 'Run elevated inside the VM.'}
 $base='C:\ProgramData\wintide'
@@ -86,12 +87,55 @@ elseif ($Mode -eq 'yttrium') {
  if (!(Test-Path "$base\certificate-before.xml")) {
   [pscustomobject]@{Thumbprint=$thumb;RootAlreadyPresent=(Test-Path "Cert:\LocalMachine\Root\$thumb");PublisherAlreadyPresent=(Test-Path "Cert:\LocalMachine\TrustedPublisher\$thumb")} | Export-Clixml "$base\certificate-before.xml"
  }
- Import-Certificate $cert -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
- Import-Certificate $cert -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+ # certutil works under QGA's LocalSystem account as well as an elevated user.
+ # Import-Certificate can deny LocalMachine\TrustedPublisher under LocalSystem.
+ certutil.exe -addstore -f Root $cert | Out-Null;Native-OK 'Trust driver root certificate'
+ certutil.exe -addstore -f TrustedPublisher $cert | Out-Null;Native-OK 'Trust driver publisher certificate'
  bcdedit.exe /set '{current}' testsigning on;Native-OK 'Enable test signing'
  if ($DisableHibernation) {powercfg.exe /hibernate off;Native-OK 'Disable hibernation'}
  pnputil.exe /add-driver $inf;Native-OK 'Stage Yttrium driver'
  Write-Output 'Driver verified, backed up and staged. Shut Windows down cleanly, apply host setup, then start it. No reboot or forced shutdown performed.'
+}
+elseif ($Mode -in @('activate-yttrium','verify-yttrium')) {
+ $inf="$base\driver\Install_Debug\Win11\amd64\viogpu3d.inf"
+ if (!(Test-Path $inf)) {throw 'Stage the pinned Yttrium driver first.'}
+ $hardwareId='PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01'
+ if (!(Select-String -LiteralPath $inf -SimpleMatch $hardwareId)) {throw 'The staged INF does not match the expected VirtIO GPU.'}
+ $devices=@(Get-PnpDevice -PresentOnly -Class Display | Where-Object InstanceId -like "$hardwareId\*")
+ if (!$devices.Count) {throw 'The expected VirtIO GPU is absent. Apply the host graphics setup first.'}
+ if ($Mode -eq 'activate-yttrium') {
+  if (!$EnableTestSigning) {throw 'Explicit graphics-driver opt-in is required.'}
+  # A display-only VirtIO driver can remain selected after staging the 3D driver.
+  # Bind only this exact GPU hardware ID, after the matching host is running.
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class WinTideDriver {
+ [DllImport("newdev.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
+ [return: MarshalAs(UnmanagedType.Bool)]
+ public static extern bool UpdateDriverForPlugAndPlayDevicesW(IntPtr parent, string hardwareId,
+  string inf, uint flags, [MarshalAs(UnmanagedType.Bool)] out bool reboot);
+}
+'@
+  $reboot=$false
+  if (![WinTideDriver]::UpdateDriverForPlugAndPlayDevicesW([IntPtr]::Zero,$hardwareId,$inf,5,[ref]$reboot)) {
+   $code=[Runtime.InteropServices.Marshal]::GetLastWin32Error()
+   throw "Yttrium activation failed with Win32 error $code. Inspect Windows driver/signing policy; no security protections were disabled."
+  }
+  Write-Output "Yttrium driver selected. RestartRequired=$reboot. Restart Windows cleanly, then run verify-yttrium."
+ } else {
+  $versionLine=(Select-String -LiteralPath $inf -Pattern '^DriverVer\s*=').Line
+  $expected=($versionLine -split ',')[-1].Trim()
+  foreach($device in $devices) {
+   $driver=Get-CimInstance Win32_PnPSignedDriver | Where-Object DeviceID -eq $device.InstanceId
+   $state=Get-CimInstance Win32_PnPEntity | Where-Object DeviceID -eq $device.InstanceId
+   $original=if ($driver) {(Get-WindowsDriver -Online -Driver $driver.InfName).OriginalFileName} else {''}
+   if (!$driver -or (Split-Path $original -Leaf) -ne 'viogpu3d.inf' -or $driver.DriverVersion -ne $expected -or $state.ConfigManagerErrorCode -ne 0) {
+    throw "Yttrium is not active and healthy: driver=$($driver.DeviceName), version=$($driver.DriverVersion), device error=$($state.ConfigManagerErrorCode)."
+   }
+   Write-Output "Verified $($driver.DeviceName), version $($driver.DriverVersion), device error 0. This checks driver binding, not Direct3D rendering."
+  }
+ }
 }
 elseif ($Mode -eq 'share') {
  $svc=Get-CimInstance Win32_Service | Where-Object Name -eq 'VirtioFsSvc'

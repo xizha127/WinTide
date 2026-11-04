@@ -63,7 +63,7 @@ The reference setup runs CachyOS/Hyprland, Windows 11 Pro on a physical NVMe dis
 - Yttrium hardware **Direct3D 11 device creation and GPU clear/readback**, while Linux continues using the GPU.
 - Optional VirtioFS read/write and permission protection against the reproduced mode-000 failure.
 
-**This is an experimental desktop integration with tested components, not a universal gaming solution.** DirectX 12, individual games, other GPU vendors, other compositors and a clean-machine end-to-end installation have not been validated. The Windows graphics driver requires test signing; review [driver and security changes](docs/security.md).
+**This is an experimental desktop integration with tested components, not a universal gaming solution.** A fresh Windows guest created with Quickemu passed installation, hardware D3D11 rendering and shared RemoteApp connection checks on the reference Linux host. Full-desktop RDP remained black on that evaluation build, with Windows compositor crashes; see the [validation record and fixes](docs/validation.md#fresh-windows-guest-validation). DirectX 12, individual games, other GPU vendors, other compositors and a clean Linux host installation have not been validated. The Windows graphics driver requires test signing; review [driver and security changes](docs/security.md).
 
 VM hiding, identity spoofing, custom concealment firmware and anti-cheat bypass experiments are outside WinTide's scope and are no longer part of the setup toolkit.
 
@@ -132,5 +132,6 @@ WinTide's implementations stand on substantial upstream work:
 - **[arehnman / Yttrium](https://github.com/arehnman/yttrium-virtio-gpu)** — the Windows GPU driver and matching [QEMU](https://github.com/arehnman/yttrium-qemu), [renderer](https://github.com/arehnman/virglrenderer) and [Mesa integration](https://github.com/arehnman/virtio-win-mesa).
 - **[QEMU](https://www.qemu.org/)**, **[KVM](https://linux-kvm.org/)**, **[libvirt](https://libvirt.org/)**, **[Mesa/Venus](https://www.mesa3d.org/)** and **[virglrenderer](https://gitlab.freedesktop.org/virgl/virglrenderer)** — virtualization and shared graphics infrastructure.
 - **[VirtIO-Win](https://github.com/virtio-win/kvm-guest-drivers-windows)**, **[VirtioFS](https://virtio-fs.gitlab.io/)** and **[WinFsp](https://github.com/winfsp/winfsp)** — guest integration and optional file sharing.
+- **[Quickemu](https://github.com/quickemu-project/quickemu)** — tooling used to create the fresh Windows validation guest.
 
 See [full attribution and license details](THIRD_PARTY.md), including firmware, console and TPM components. WinTide is an independent integration project, not an official product or endorsement from these projects.

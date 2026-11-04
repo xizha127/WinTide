@@ -21,7 +21,8 @@ Guest Agent responding. Then run **as your desktop user**:
 The wizard generates a reviewable VM plan, builds the pinned components, enables
 RemoteApps, configures key-only SSH, installs the matching graphics driver,
 requests a clean Windows shutdown, installs the guarded host integration, boots
-Windows, installs the `wintide` command, and discovers launcher entries. Explorer
+Windows, explicitly selects the matching GPU driver, restarts again and verifies
+the active driver before installing the `wintide` command and discovering entries. Explorer
 and Settings brokers are included. Optional VirtioFS configuration still requires
 VioFS and WinFsp to be installed in Windows first.
 
@@ -90,7 +91,25 @@ The same operations remain available separately for troubleshooting and review:
 
    Existing CPU, storage, network and firmware are retained. A running VM is never force-stopped. Existing custom QEMU command-line arguments or passthrough devices require manual review; the installer refuses to silently replace them. The operation installs namespaced files and records rollback copies.
 
-5. Confirm Windows boots and the guest agent responds, then install the isolated Linux client profile:
+5. Confirm Windows boots and the guest agent responds. Select the pinned GPU driver
+   on the exact supported VirtIO GPU, then restart cleanly and verify its binding.
+   Staging alone can leave an existing display-only driver selected:
+
+   ```sh
+   sudo ./setup.sh --config local-config.json guest --guest-mode activate-yttrium --enable-test-signing
+   sudo ./setup.sh --config local-config.json stop
+   sudo ./setup.sh --config local-config.json start
+   # Wait for QEMU Guest Agent to respond, then:
+   sudo ./setup.sh --config local-config.json guest --guest-mode verify-yttrium
+   ```
+
+   Verification checks the active INF, version and device error code, not rendering.
+   Activation uses Microsoft's [driver update API](https://learn.microsoft.com/en-us/windows/win32/api/newdev/nf-newdev-updatedriverforplugandplaydevicesw)
+   to select the pinned driver even when Windows prefers another package. It only
+   targets the exact VirtIO GPU hardware ID supported by that package. Original
+   display drivers are exported before staging; see [rollback](rollback.md).
+
+6. Install the isolated Linux client profile:
 
    ```sh
    ./setup.sh --config local-config.json install-client --windows-user YOUR_LOCAL_WINDOWS_USER
