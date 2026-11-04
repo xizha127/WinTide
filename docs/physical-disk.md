@@ -15,10 +15,10 @@ The automated installer deliberately starts after the VM boots successfully. Phy
 
    This targets the private VM EFI files. Do not select the native EFI partition. Windows recovery drive letters are not stable. Never paste a disk/partition number from somebody else's guide.
 
-7. Confirm boot and sign-in, then install official VirtIO-Win QEMU Guest Agent and check `guest-ping` from Linux. Configure network access, then follow the README installer path.
+7. Confirm boot and sign-in, then install official VirtIO-Win QEMU Guest Agent and check `guest-ping` from Linux. Configure network access, then follow the [setup guide](getting-started.md).
 
 Reference observation: host-passthrough CPU repeatedly failed to boot this installation while a custom `Skylake-Client-IBRS` CPU worked. This is a machine-specific result, not a universal recommendation. The installer preserves the existing working CPU definition. P-core affinity improved latency on the tested hybrid CPU; inspect your own topology with `lscpu -e` before pinning.
 
 Sources: [libvirt disk XML](https://libvirt.org/formatdomain.html#hard-drives-floppy-disks-cdroms), [Microsoft BCDBoot](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/bcdboot-command-line-options-techref-di), [Microsoft hibernation](https://learn.microsoft.com/en-us/troubleshoot/windows-client/setup-upgrade-and-drivers/disable-and-re-enable-hibernation).
 
-The runtime automount marker and saved mounts are transient under `/run/winapps-yttrium/DOMAIN/`, so a host reboot cannot leave the disk permanently hidden by a stale marker. A failed or unclean NTFS probe blocks automatic startup; recover/shut down Windows cleanly rather than running an automatic `ntfsfix`.
+The runtime automount marker and saved mounts are transient under `/run/winapps-yttrium/DOMAIN/`, so a host reboot cannot leave the disk permanently hidden by a stale marker. The runtime checks for mounted raw filesystems, loop-mounted VM images and read-only configured disks. It does not run an NTFS mountability or journal-health probe; Windows owns journal replay. A successful guard check is not a filesystem health check.

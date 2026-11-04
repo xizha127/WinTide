@@ -1,28 +1,58 @@
-# Small local fixes
+# WinTide implementation fixes
 
-## SDL3 RemoteApp resizing
+## SDL3 RemoteApp integration
 
-Upstream: [FreeRDP](https://github.com/FreeRDP/FreeRDP). Separate fork: [xizha127/FreeRDP](https://github.com/xizha127/FreeRDP/tree/winapps-wayland-resize).
+`patches/freerdp-sdl-resize.patch` applies to FreeRDP 3.32.2 commit
+`97eff6ddfbbfaa8e42a126d362686bd001ff8bdc`. It extends upstream SDL3 RAIL work.
+The separate [FreeRDP fork](https://github.com/xizha127/FreeRDP/tree/winapps-wayland-resize)
+contains earlier resize work; the patch in this repository is authoritative for
+the current WinTide build.
 
-`patches/freerdp-sdl-resize.patch` applies against release3.32.2 commit `97eff6ddfbbfaa8e42a126d362686bd001ff8bdc` and contains:
+| Problem | Current implementation |
+|---|---|
+| Shrinking stalls after a resize | Permit compositor geometry to supersede an in-flight apply on shrink as well as growth. |
+| Windows and local maximize state disagree | Keep ordinary Wayland RemoteApp HWNDs restored so `ClientWindowMove` works; let SDL/the compositor own local maximization. Ignore stale SDL maximized flags when deciding whether remote geometry is pinned. |
+| Ordinary tiled windows send maximize notifications | Synchronize geometry rather than translate those notifications into Windows `SC_MAXIMIZE`. |
+| Apps start floating despite being resizable | Remove the finite maximum-size hints derived from the remote work area. Those could be smaller than a local tile and cause the compositor to float it. No compositor-specific rule is installed. |
+| Queued maximize/restore events bounce between systems | Coalesce state while hidden and identify acknowledgements of SDL state operations with a per-window timestamp barrier. |
+| RemoteApp launch stalls on a login image | Submit the initial app once after the RAIL handshake rather than depend solely on a desktop ARC-completed notification. |
+| Every app launch reconnects all existing windows | With `WINTIDE_SESSION_REUSE=1`, forward additional launches through a private same-user local socket to the existing RAIL connection. |
+| One invalid app closes other apps | Retain an already-active connection when Windows rejects an additional EXEC request. |
 
-1. Permit Wayland compositor sizes to supersede an in-flight geometry apply on shrink as well as growth. The growth-only condition could suppress subsequent shrinking indefinitely.
-2. Treat the RAIL maximize state as authoritative. A stale SDL Wayland maximized flag after server restore could block geometry synchronization even when Windows reported the window restored.
+For the window-state policy, maximize requests within three seconds of mapping
+are treated as startup state. Later native maximize-button requests toggle the
+local SDL surface. Popup/fullscreen surfaces retain their separate handling;
+this is not a universal guarantee for every custom fullscreen application.
 
-3. Start the requested app after the RAIL handshake, with a per-connection guard against duplicate execution. The observed Windows session did not send the desktop ARC-completed notification used by the previous startup path, leaving the client on the login image without executing the app. Both handshake variants now launch once, following the Windows client startup approach.
+The launch broker reuses the first connection's redirections and compositor app
+class. It does not merge full-desktop sessions. See [launcher behavior and limits](winapps.md)
+and [live validation](validation.md).
 
-4. Separate Wayland compositor maximization from Windows `WS_MAXIMIZE`. Ordinary tiled surfaces can receive SDL maximized events; these synchronize geometry instead of sending `SC_MAXIMIZE`. Server maximize requests are restored remotely so `ClientWindowMove` continues working. A later native maximize-button request toggles the local SDL surface; requests within three seconds of mapping are treated as startup state. Popup/fullscreen surfaces retain their separate path.
-5. Leave the maximum size of resizable Wayland application surfaces unconstrained. Windows max-track sizes and a locally imposed usable-area cap advertised a maximum smaller than the compositor's tile. Hyprland's layout consequently floated those windows. This is an SDL size-hint correction, with no compositor rules.
-6. Coalesce state while hidden and distinguish queued SDL acknowledgements from new local state changes using a per-window timestamp barrier.
+## Explorer launcher
 
-7. Reuse one Linux SDL RemoteApp connection per server/account through a private local launch socket. Additional RAIL EXEC requests launch apps without repeating login or recreating existing windows. App launch rejection no longer aborts an already-active session.
+`guest/Explorer-Broker.ps1` opens a new This PC window per invocation. It serializes
+new-window discovery, tracks the new HWND and keeps that invocation alive until
+its window closes. It does not close, restore or repurpose existing Explorer
+windows. The VBS launcher is generated from this script by `install-client`.
 
-Interactive validation: earlier floating sizes of client1200x800, 900x600 and1100x750 matched the Windows client plus frame margins. With the current patch, Settings and Explorer both opened tiled without floating rules. Settings's local844x1380 allocation matched its restored native858x1387 rectangle. Native maximize followed by restore returned to a responsive tile; the user confirmed both tiling and maximization were fixed. Checks used the actual patched process, then installed that identical executable. Other compositors, applications, DPI configurations and extended stability remain unverified.
+## Venus renderer under libvirt
 
-## Venus render-server child under libvirt
+`patches/renderer-libvirt-seccomp.patch` applies to the pinned
+[arehnman virglrenderer fork](https://github.com/arehnman/virglrenderer).
+The renderer starts a Venus child process; the installed QEMU wrapper permits
+sandboxed process spawning, and the patch omits the child's terminal-oriented
+`setpgid` call that triggered SIGSYS under the tested libvirt sandbox. Privilege
+restrictions remain enabled.
 
-Upstream: [arehnman's renderer](https://github.com/arehnman/virglrenderer), pinned in components.lock.json.
+The host integration also adds the configured GPU device nodes to libvirt's
+allowlist and restarts the relevant libvirt daemon while the VM is shut off.
+Missing device permissions previously caused black screens. These changes do
+not unbind the host GPU or configure PCI passthrough.
 
-The renderer forks/execs its Venus server. Libvirt's QEMU sandbox initially blocked spawning; after allowing spawn for this VM, kernel audit recorded SIGSYS on syscall109 (`setpgid`) in the render child. The renderer called it only to avoid terminal signals. A libvirt-launched VM has no controlling terminal and its descendants are managed in its cgroup, so our patch omits that call. This permits retaining `elevateprivileges=deny` rather than disabling the whole sandbox.
+## Optional shared-file permission policy
 
-The other black-screen cause was an absent GPU device allowlist: NVIDIA control/render opens returned EPERM inside the QEMU cgroup. Adding exact nodes and **restarting**, not merely reloading, virtqemud corrected it. Successful Windows sign-in plus GPU clear/readback followed. Neither change requires GPU passthrough.
+`patches/virtiofsd-preserve-host-permissions.patch` protects Linux ownership/modes
+and permission-bearing xattrs from guest ACL translation while allowing ordinary
+content writes. It is enabled only for a configured guarded VirtioFS share.
+It does not implement Windows ACL persistence or solve Steam library behavior.
+See [sharing](sharing.md) for the tested scope and activation requirements.

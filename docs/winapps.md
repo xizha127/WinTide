@@ -37,7 +37,7 @@ The endpoint lives in the user's private `XDG_RUNTIME_DIR`, with owner-only sock
 and lock permissions, peer UID verification, and a lock to serialize simultaneous
 first launches. A failed handoff fails closed rather than opening a competing
 connection. The acknowledgement means the RAIL request was submitted; Windows can
-still reject a program, which is recorded in the owner's client log. A rejected
+still reject a program, which the SDL client reports through its own logging. The generated WinApps core normally redirects client output to `/dev/null`, so WinApps `DEBUG` alone does not capture that RAIL error. A rejected
 additional app does not terminate the existing session.
 
 The first connection owns display options, redirected drives, audio and the
@@ -57,78 +57,26 @@ geometry path. Remembered startup maximization is normalized through RAIL;
 later native maximize requests act on the local SDL surface. There is no
 Hyprland-specific float/tile rule. See [the SDL fixes](fixes.md).
 
-The optional helper below also handles Windows-side startup policy, but is not
+The optional helper also handles Windows-side startup policy, but is not
 a substitute for the SDL fix. Its standalone manual-maximize test expectations
 apply without SDL's remote-window normalization.
 
-`guest/windowed-helper/` is a small Rust Windows program using Microsoft's
-[`windows-sys` bindings from windows-rs](https://github.com/microsoft/windows-rs).
-It watches top-level windows in the interactive RDP session and calls
-`ShowWindowAsync(SW_RESTORE)` once for a newly shown maximized window. It does
-not maximize first, send keyboard shortcuts, change FreeRDP, or reconnect RDP.
+Build, installation, removal and standalone test instructions are in the
+[optional Windows helper guide](windowed-helper.md). It is not required by the
+current SDL resize/maximize implementation.
 
-The helper watches each new window for three seconds, allowing for apps that
-apply their remembered maximize state after showing. A maximize must settle
-for 300 ms before restoration. Each visible-window lifecycle receives at most one restore request; hiding and showing a reused HWND rearms it, and
-manual maximization afterward is allowed. An app that maximizes itself again
-after that request, or more than three seconds after appearing, is not forced
-back repeatedly. Maximizing manually during that initial grace period can be
-treated as a startup maximize.
+## Diagnose a launch without resetting the setup
 
-Fullscreen is exempt when the window covers its monitor and is either
-unmaximized (such as F11) or lacks a caption (such as borderless fullscreen).
-Child windows, tool windows, cloaked windows, shell surfaces, and the RemoteApp
-marker are excluded. These are Windows window-state/style checks, not a promise
-to recognize every game's custom fullscreen implementation. Elevated apps may
-refuse a standard-user helper's restore request.
-
-Build separately from the GPU/RDP stack on Linux (Rust and MinGW required):
-
-```sh
-rustup target add x86_64-pc-windows-gnu
-./setup.sh --config local-config.json build-windowed-helper
-sudo ./setup.sh --config local-config.json install-windowed-helper --windows-user USER
-```
-
-The install command uploads the locally built executable through QEMU Guest
-Agent; it does not download or execute an unreviewed release. Alternatively,
-build on Windows with `cargo build --locked --release` in
-`guest/windowed-helper`, then run the installer in an elevated PowerShell:
-
-```powershell
-.\guest\Install-WindowedHelper.ps1 -BinaryPath .\guest\windowed-helper\target\release\winapps-windowed.exe -WindowsUser USER
-```
-
-The scheduled task runs as that user with an interactive token, without a saved
-password or elevation. Logon and RDP reconnect triggers start it alongside
-WinApps, including reuse of an existing RemoteApp session. A session-local mutex
-prevents duplicate helpers. It stays available for subsequent app launches and
-is inactive on the native console. Already visible windows are included when
-the helper first starts. No per-app launchers need modification.
-
-Installation starts it immediately if the user is signed in. Otherwise it
-starts at the next RDP/WinApps logon. The task is named `WinApps-Windowed-<SID>`;
-the binary is under `%ProgramData%\WinApps-Yttrium-Setup\windowed-helper`.
-Diagnostics under `%LOCALAPPDATA%\WinApps\windowed-helper-<session>.log` record
-only version/session and restore HWND/PID/request status, not titles, document
-paths or credentials. A queued restore is not proof that the app accepted it.
-
-Remove the task without closing apps or disconnecting Windows:
-
-```sh
-sudo ./setup.sh --config local-config.json remove-windowed-helper --windows-user USER
-```
-
-Or use `Install-WindowedHelper.ps1 -WindowsUser USER -Uninstall` in Windows.
-Uninstall disables the task and stops its helper instances; the binary and
-diagnostics remain for inspection. `winapps-windowed.exe --stop` can also stop
-the helper in the caller's own interactive session.
-
-For behavioral verification, run `guest/Test-WindowedHelper.ps1` in the same
-interactive RDP session (not directly via SSH/QGA session 0). It opens disposable
-WinForms windows and checks actual Windows maximization state for remembered
-startup, delayed startup, and subsequent manual maximize; it also checks
-deduplication and that fullscreen receives no helper restore request. Results
-are written to `%LOCALAPPDATA%\WinApps\windowed-helper-verification.json`.
-RemoteApp's Linux compositor can independently resize borderless test windows;
-the fullscreen check does not claim exclusive fullscreen or game compatibility.
+- All participating launchers must use the patched binary and export
+  `WINTIDE_SESSION_REUSE=1`. An old wrapper or a client started before the upgrade
+  can still create a separate connection.
+- Use the same server address, port, Windows username and domain for shared
+  launches. Different address spellings are separate connection keys.
+- `DEBUG=true` in the profile logs WinApps wrapper activity to its app-data
+  directory. Detailed RAIL errors require capturing the SDL client's output
+  separately; logs can contain paths and account information, so keep them local.
+- Start the VM with the guarded setup command before launching apps. A local
+  console or full-desktop RDP login can still switch the Windows session.
+- Discovery is not universal: Settings/UWP and some portable programs require
+  manual app definitions. A working app on the reference machine does not mean
+  the generic installer creates that exact launcher.

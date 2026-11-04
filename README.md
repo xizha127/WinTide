@@ -18,7 +18,7 @@ Bring your Windows apps into your Linux workspace—with native Wayland windows,
 
 Open a Windows app from your Linux launcher. Tile it beside your Linux apps. Resize it, maximize it, and bring it back without fighting two window managers.
 
-**WinTide is our implementation of that workflow:** a reproducible setup toolkit, RemoteApp client fixes, launcher integration, and VM lifecycle tooling built on WinApps, FreeRDP, Yttrium and libvirt. Use an existing Windows VM—or a supported physical Windows installation—while keeping your Linux desktop and host GPU available.
+**WinTide is our implementation of that workflow:** a reproducible setup toolkit, RemoteApp client fixes, launcher integration, and VM lifecycle tooling built on WinApps, FreeRDP, Yttrium and libvirt. The packaged installer targets an existing physical-disk Windows installation that already boots in libvirt, while keeping your Linux desktop and host GPU available.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
     B <-->|"RemoteApp windows\nTile · resize · maximize"| C["Windows apps\nlibvirt / KVM"]
     C --> D["Yttrium + Venus\nShared GPU rendering"]
     D --> E["Linux host GPU\nStill available to Linux"]
-    F["Existing Windows installation\nVM disk or guarded physical disk"] --> C
+    F["Existing Windows installation\nGuarded physical disk"] --> C
     style B fill:#0b5260,stroke:#5eead4,color:#ffffff
     style C fill:#163752,stroke:#7dd3fc,color:#ffffff
     style D fill:#163752,stroke:#7dd3fc,color:#ffffff
@@ -68,7 +68,7 @@ VM hiding, identity spoofing, custom concealment firmware and anti-cheat bypass 
 
 ## Get started
 
-Start with an existing, bootable Windows 11 Pro/Enterprise VM in system libvirt, QEMU Guest Agent, and the [host prerequisites](docs/requirements.md). WinTide does not install Windows or guess how to repair your boot records.
+Start with an existing, bootable physical-disk Windows 11 Pro/Enterprise VM in system libvirt, QEMU Guest Agent, and the [host prerequisites](docs/requirements.md). WinTide does not install Windows or guess how to repair your boot records.
 
 ```sh
 git clone https://github.com/xizha127/WinTide.git
@@ -82,7 +82,7 @@ chmod 600 local-config.json
 
 Then follow the [complete setup guide](docs/getting-started.md) for guest preparation, plan review, host integration and app launchers. Building alone does not configure the VM.
 
-Existing installations keep their `winapps-yttrium` command, profile and service names for compatibility. The rebrand does not require reinstalling your working setup.
+Existing installations keep their `winapps-yttrium` command, profile and service names for compatibility. These compatibility names also remain in newly generated launchers and services; the build/cache defaults use `wintide`.
 
 ## Choose the right storage path
 
