@@ -19,6 +19,10 @@ For a manual app:
 wintide manual 'C:\Windows\System32\notepad.exe'
 ```
 
+Fresh installations include Explorer and Settings broker entries; other registered
+executables are discovered by `wintide apps refresh`. Portable applications can be
+added with `wintide apps add`; see [command reference](command.md).
+
 For standalone Explorer, `guest/Explorer-Broker.ps1` documents the working broker approach: open a new This PC window on every launch and keep that launch process alive until its new window closes. Concurrent launches serialize window discovery, and existing folder windows are neither restored nor closed. The integration installer creates its broker launcher separately; no arbitrary Windows desktop windows are closed.
 
 The patched client is the SDL3 `sdl-freerdp` built from FreeRDP3.32.2, not a differently named system binary. RemoteApps use `/gdi:sw -decorations +dynamic-resolution`; do not silently switch to `/gdi:hw` or `/multimon`, which regressed the reference setup. FFmpeg/swscale are disabled in this build to avoid the observed distro ABI conflict; this is not an optimal multimedia-codec preset for all hosts.
@@ -72,6 +76,5 @@ is required. The former helper has been retired.
   separately; logs can contain paths and account information, so keep them local.
 - Start the VM with the guarded setup command before launching apps. A local
   console or full-desktop RDP login can still switch the Windows session.
-- Discovery is not universal: Settings/UWP and some portable programs require
-  manual app definitions. A working app on the reference machine does not mean
-  the generic installer creates that exact launcher.
+- Discovery is not universal: Settings has a built-in broker, but other UWP apps
+  and unregistered portable programs can need manual definitions.

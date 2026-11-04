@@ -2,11 +2,59 @@
 
 WinTide brings Windows RemoteApps into your Linux desktop using a guarded libvirt VM and a patched SDL FreeRDP client.
 
-## Prerequisites and installation
+## Prerequisites
 
-The automated path starts with an **existing, bootable x86-64 Windows 11 Pro/Enterprise physical-disk VM in system libvirt**, with QEMU Guest Agent running. The config loader currently requires a nonempty `physical_disks` list of existing block devices; an image-only VM is not an automated install path. Building that initial VM and correcting a machine-specific EFI/BCD layout is covered in [physical disk and boot preparation](physical-disk.md); the installer never guesses at boot-record repair, formats a disk, or attaches the disk containing your running Linux installation.
+The automated path starts with an **existing, bootable x86-64 Windows 11 Pro/Enterprise VM in system libvirt**, with QEMU Guest Agent running. Use `disk_mode: "physical"` with an explicit `physical_disks` list for a raw-disk installation, or `disk_mode: "image"` with `physical_disks: []` for standalone file-backed disks. Image mode refuses raw disks and backing chains. Building that initial VM and correcting a machine-specific EFI/BCD layout is covered in [physical disk and boot preparation](physical-disk.md); the installer never guesses at boot-record repair, formats a disk, or attaches the disk containing your running Linux installation.
 
 Use an unprivileged desktop account for the build. Root is needed only for system libvirt setup and guest-agent operations.
+
+## Guided setup
+
+Install the [host prerequisites](requirements.md), create your local config from
+`examples/config.example.json`, and confirm the base Windows VM boots with QEMU
+Guest Agent responding. Then run **as your desktop user**:
+
+```sh
+./setup.sh --config local-config.json install --windows-user YOUR_LOCAL_WINDOWS_USER
+```
+
+The wizard generates a reviewable VM plan, builds the pinned components, enables
+RemoteApps, configures key-only SSH, installs the matching graphics driver,
+requests a clean Windows shutdown, installs the guarded host integration, boots
+Windows, installs the `wintide` command, and discovers launcher entries. Explorer
+and Settings brokers are included. Optional VirtioFS configuration still requires
+VioFS and WinFsp to be installed in Windows first.
+
+The animated spinner shows the current task; the progress bar counts completed
+stages, not estimated download/build time. Non-terminal output is plain; use
+`--plain` to disable animation explicitly. `NO_COLOR` disables colors.
+
+You review the plan and explicitly accept test signing and the restart. For an
+already reviewed noninteractive run, supply `--yes --enable-test-signing` and,
+for physical disks, `--disable-hibernation`. Windows account password entry is
+interactive by default. For automation, use `--password-file PATH` pointing to
+a desktop-user-owned file with mode `0600`; only its path is passed in arguments.
+`--yes` does not bypass disk guards or overwrite an existing installation.
+
+Logs and completed-stage checkpoints are private under `WORK_DIR/setup/`. Run
+the same command again to resume unfinished stages. A failed stage is never
+marked complete. If failure occurs after a system change but before checkpoint
+writing, the existing installer may refuse a repeat; inspect its log and rollback
+state rather than deleting backups. Changed configuration/source invalidates
+the checkpoint and requires review.
+
+SSH uses a per-VM Ed25519 key under `~/.ssh/wintide_DOMAIN`; `--ssh-key PATH` uses
+an existing key, and `--skip-ssh` omits provisioning. The Windows recipe requires
+a local administrator account, installs OpenSSH Server if missing, restricts its
+firewall to the host address, and configures key-only authentication for that
+account. See [Microsoft's OpenSSH installation guide](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse).
+Windows optional-feature installation needs internet access and can request a
+restart; the wizard reports that failure in the stage log so you can restart and
+resume. A PIN is not an RDP password.
+
+## Individual setup stages
+
+The same operations remain available separately for troubleshooting and review:
 
 1. Install the [host prerequisites](requirements.md). Confirm the base VM boots and that `virsh -c qemu:///system qemu-agent-command YOUR_VM '{"execute":"guest-ping"}'` responds.
 2. Create a local configuration:
@@ -67,6 +115,9 @@ Use an unprivileged desktop account for the build. Root is needed only for syste
 | Windows setup / rollback state | `C:\ProgramData\wintide` |
 | Windows startup backups | `C:\ProgramData\wintide\startup-TIMESTAMP` |
 
+An optional `client_profile` creates a separate named command and client paths
+for a second VM. See [separate test installations](command.md#separate-test-installations).
+
 Upstream-owned paths, such as the Windows VirtIO drivers, WinFsp, OpenSSH and
 libvirt hooks directory, retain the names their tools require. Source checkout
 keys and upstream repository URLs retain the actual project names.
@@ -86,12 +137,12 @@ running. An automatic migration command is not provided.
 Run these from the checkout with your existing local configuration:
 
 ```sh
-sudo ./setup.sh --config local-config.json start
+wintide --start
 wintide manual 'C:\Windows\System32\notepad.exe'
 # Optional, only when a VirtioFS directory is configured and mounted:
 sudo ./setup.sh --config local-config.json share
 # After saving and closing Windows work:
-sudo ./setup.sh --config local-config.json stop
+wintide --stop
 ```
 
 `start` prepares guarded raw disks and starts the VM if it is shut off. `stop`
@@ -100,9 +151,11 @@ not force-stop Windows. Desktop mounts without an fstab entry stay unmounted.
 A managed-save state blocks remounting until Windows has resumed and shut down.
 See [storage ownership](sharing.md) and [rollback](rollback.md).
 
-The generated launcher assumes the VM is available; it does not replace the
-root-owned physical-disk preparation command. Start through the guarded command
-before using desktop app entries.
+The `wintide` command and generated desktop entries automatically start a stopped
+VM through the root-owned disk guard, then wait for RDP readiness. Authorization
+uses sudo in a terminal, or cached sudo/polkit from a desktop launcher; no broad
+passwordless-sudo rule is installed. `wintide --ssh` starts only SSH, with X11,
+agent and port forwarding disabled. See [command reference](command.md).
 
 ## Existing installations
 

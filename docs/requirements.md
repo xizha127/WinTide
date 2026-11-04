@@ -23,8 +23,10 @@ The native build uses host shared libraries, so source pins are reproducible whi
 
 Optional guarded VirtioFS builds require a configured Rust toolchain (`rustup default stable` if none is installed) and the pinned Cargo.lock dependencies. The source pin is in components.lock.json.
 
-The physical-disk config must list the raw Windows disks by stable by-id paths.
-Do not use placeholder disks to bypass validation for an image-only VM.
+Physical-disk mode must list every raw Windows disk by stable by-id path. For a
+standalone image-backed VM, select `disk_mode: "image"` and `physical_disks: []`;
+raw disks and backing chains are refused in that mode. Both modes require an
+already bootable Windows VM and QEMU Guest Agent.
 
 The Linux SDL launch broker needs the desktop session's `XDG_RUNTIME_DIR`, owned
 by that user with no group/other access. Launch from the desktop user's session;

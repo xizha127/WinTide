@@ -6,6 +6,31 @@ import setup,runtime
 XML='''<domain type="kvm"><name>testvm</name><cpu mode="custom"><model>Skylake-Client-IBRS</model></cpu><devices><emulator>/usr/bin/qemu-system-x86_64</emulator><disk type="block"><source dev="/dev/example"/></disk><graphics type="spice"/><video><model type="qxl"/></video><channel type="spicevmc"/><interface type="network"><source network="default"/></interface></devices></domain>'''
 C={'domain':'testvm','prefix':'/opt/test','uid':1000,'gid':1000,'tpm_gid':973,'home':'/example','hostmem_bytes':4294967296,'display':':0','wayland_display':'wayland-1','physical_disks':[],'uri':'qemu:///system','shared_directory':'/mnt/test','shared_uuid':'expected','share_tag':'host-games','share_letter':'H'}
 class SetupTests(unittest.TestCase):
+ def test_image_mode_requires_explicit_opt_in(self):
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as tmp:
+   path=pathlib.Path(tmp)/'config.json'
+   c={**C,'desktop_user':'example','work_dir':'/example/cache'}
+   path.write_text(json.dumps(c))
+   account=SimpleNamespace(pw_dir='/example',pw_uid=1000,pw_gid=1000)
+   with patch.object(setup.pwd,'getpwnam',return_value=account):
+    with self.assertRaisesRegex(ValueError,'physical_disks'):setup.config(path)
+    c['disk_mode']='image';path.write_text(json.dumps(c))
+    self.assertEqual(setup.config(path)['physical_disks'],[])
+ def test_image_plan_refuses_raw_disks_and_backing_chains(self):
+  from types import SimpleNamespace
+  import grp
+  with tempfile.TemporaryDirectory() as tmp,patch.object(grp,'getgrnam',return_value=SimpleNamespace(gr_gid=973)),patch.object(setup,'show_run'):
+   c={**C,'disk_mode':'image'}
+   with patch.object(setup,'virsh',return_value=XML):
+    with self.assertRaisesRegex(ValueError,'Every raw disk'):setup.plan(c,pathlib.Path(tmp))
+   image_xml=XML.replace('<disk type="block"><source dev="/dev/example"/></disk>','<disk type="file" device="disk"><source file="/example/windows.qcow2"/></disk>')
+   def command(*args,**kwargs):return subprocess.CompletedProcess(args,0,json.dumps({'backing-filename':'/dev/example'}) if args[0]=='qemu-img' else '','')
+   with patch.object(setup,'virsh',return_value=image_xml),patch.object(setup,'run',side_effect=command):
+    with self.assertRaisesRegex(ValueError,'standalone'):setup.plan(c,pathlib.Path(tmp))
+   def standalone(*args,**kwargs):return subprocess.CompletedProcess(args,0,'{}' if args[0]=='qemu-img' else '','')
+   with patch.object(setup,'virsh',return_value=image_xml),patch.object(setup,'run',side_effect=standalone):setup.plan(c,pathlib.Path(tmp))
+   self.assertTrue((pathlib.Path(tmp)/'domain.wintide.xml').is_file())
  def test_restore_saved_memory_refuses_before_touching_mounts(self):
   with patch.object(runtime,'state',return_value='shut off'),patch.object(runtime,'run',return_value=subprocess.CompletedProcess([],0,'','')):
    with self.assertRaisesRegex(RuntimeError,'saved Windows memory'):runtime.restore(C,pathlib.Path('/missing'))
@@ -84,6 +109,26 @@ class SetupTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class ClientTests(unittest.TestCase):
+ def test_named_profile_cannot_replace_default_client(self):
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as tmp:
+   home=pathlib.Path(tmp);conf=home/'.config/wintide';conf.mkdir(parents=True)
+   default=conf/'client.json';default.write_text('existing default settings')
+   c={**C,'home':str(home),'client_profile':'validation'}
+   base,profile,command=setup.client_paths(c)
+   self.assertEqual(profile,conf/'profiles/validation')
+   self.assertEqual(command,home/'.local/bin/wintide-validation')
+   core=base/'wintide-core';core.parent.mkdir(parents=True);core.write_text('#!/bin/sh\n');core.chmod(0o755)
+   with patch.object(setup.os,'getuid',return_value=1000):
+    setup.install_command(c,SimpleNamespace(windows_user='test'))
+   settings=json.loads((profile/'client.json').read_text())
+   from wintide import Client
+   entry=Client(profile/'client.json').desktop('example','Example')
+   self.assertEqual(entry.name,'wintide-validation-example.desktop')
+   self.assertEqual(default.read_text(),'existing default settings')
+   with patch.object(setup.os,'getuid',return_value=1000),patch.object(setup,'write') as write:
+    with self.assertRaisesRegex(RuntimeError,'Profile already exists'):setup.install_client(c,SimpleNamespace(windows_user='test'))
+    write.assert_not_called()
  def test_legacy_client_refused_before_writes_or_password_prompt(self):
   from types import SimpleNamespace
   for relative in ['.config/winapps-yttrium','.local/share/winapps-yttrium','.local/bin/winapps-yttrium']:
@@ -106,11 +151,11 @@ class ClientTests(unittest.TestCase):
    with patch.object(setup.os,'getuid',return_value=1000),patch.object(setup,'run',return_value=subprocess.CompletedProcess([],0,setup.LOCK['winapps']['commit'],'')),patch.object(setup.getpass,'getpass',return_value='test-only-fixture'):
     setup.install_client(c,SimpleNamespace(windows_user='example-user'))
     setup.launchers(c)
-   self.assertIn('export WINTIDE_SESSION_REUSE=1', (home/'.local/bin/wintide').read_text())
-   launched=subprocess.run([str(home/'.local/bin/wintide'),'test argument'],capture_output=True,text=True,check=True)
-   lines=launched.stdout.splitlines()
-   self.assertEqual(lines[:3],[str(home/'.local/share/wintide'),str(src),'1'])
-   self.assertIn('/wm-class:wintide',lines[3]);self.assertEqual(lines[4],'test argument')
+   launched=subprocess.run([str(home/'.local/bin/wintide'),'apps','list'],capture_output=True,text=True,check=True)
+   self.assertIn('explorer-broker',launched.stdout)
+   self.assertIn('settings-broker',launched.stdout)
+   command_config=json.loads((home/'.config/wintide/client.json').read_text())
+   self.assertEqual(command_config['app_arguments']['explorer-broker'],[str(home/'.local/share/wintide/apps/explorer-broker/explorer-broker.vbs')])
    profile=home/'.config/wintide/profile.conf'
    self.assertEqual(profile.stat().st_mode & 0o777,0o600)
    self.assertNotIn('test-only-fixture',profile.read_text())
@@ -118,8 +163,8 @@ class ClientTests(unittest.TestCase):
    info=home/'.local/share/wintide/apps/explorer-broker/info'
    result=subprocess.run(['bash','-c','source "$1"; printf "%s" "$WIN_EXECUTABLE"','_',str(info)],capture_output=True,text=True,check=True)
    self.assertEqual(result.stdout,'C:\\Windows\\System32\\wscript.exe')
-   desktop=next((home/'.local/share/applications').glob('*.desktop')).read_text()
-   self.assertIn('explorer-broker.vbs',desktop)
+   desktop=(home/'.local/share/applications/wintide-explorer-broker.desktop').read_text()
+   self.assertIn('"app" "explorer-broker"',desktop)
    self.assertIn(str(home/'.local/bin/wintide'),desktop)
    self.assertTrue((home/'.local/share/applications/wintide-explorer-broker.desktop').exists())
 

@@ -1,11 +1,17 @@
 param(
     [Parameter(Mandatory=$true)][string]$PublicKey,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-zA-Z0-9._-]+$')][string]$UserName,
-    [Parameter(Mandatory=$true)][ipaddress]$HostAddress
+    [Parameter(Mandatory=$true)][ipaddress]$HostAddress,
+    [switch]$InstallServer
 )
 $ErrorActionPreference = 'Stop'
 if ($PublicKey -notmatch '^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( .*)?$') { throw 'Expected an Ed25519 public key' }
-if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) { throw 'Install OpenSSH Server first' }
+if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) {
+    if (!$InstallServer) { throw 'Install OpenSSH Server first, or use -InstallServer' }
+    $result = Add-WindowsCapability -Online -Name 'OpenSSH.Server~~~~0.0.1.0'
+    if ($result.RestartNeeded) { throw 'OpenSSH installation requires a restart. Restart Windows normally, then resume setup.' }
+    if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) { throw 'OpenSSH Server service is still missing' }
+}
 $user = Get-LocalUser $UserName
 if (-not $user.Enabled) { throw 'User is disabled' }
 $administrators = Get-LocalGroupMember -SID 'S-1-5-32-544'

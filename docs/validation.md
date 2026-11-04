@@ -36,6 +36,28 @@ interactive, not a new automated geometry/maximize regression run.
 - **Storage:** optional VirtioFS read/write and the permission guard passed live
   checks. Steam compatibility did not; the current game disk is Windows-owned
   NTFS. See [storage observations](sharing.md).
+
+## Command and guided setup checks
+
+The installed `wintide` command was adopted into the working deployment without
+replacing its driver, credentials or launcher core. Live checks on 2026-11-04:
+
+- `wintide --test` reached RDP and authenticated through SSH without opening a
+  graphical connection.
+- `wintide --ssh` ran commands and parsed the guest PowerShell scripts; the
+  existing SDL process remained unchanged.
+- A temporary app created through `wintide apps add` launched one additional tiled
+  Explorer window from its desktop entry, retaining the existing SDL connection.
+  Its temporary launcher and metadata were subsequently removed.
+- Animated progress was exercised in a terminal; plain output and failed-stage
+  checkpoints were checked separately. Progress measures completed stages.
+- Desktop argument quoting was round-tripped through Gio with spaces, quotes,
+  backslashes and literal shell metacharacters.
+
+The Python suite also checks SSH/RDP route separation, guarded-start failure,
+preservation of imported app metadata, private logs and named-profile isolation.
+These checks do not substitute for a fresh Windows installation test.
+
 ## Repository checks
 
 From the repository root:
@@ -78,6 +100,6 @@ texture and checks RGBA `(255, 0, 0, 255)`. The generated executable stays outsi
 
 DirectX 12, game/anti-cheat compatibility, DirectStorage, native-equivalent latency,
 other GPU vendors, other compositors, long-term stability and a clean-machine
-installer run remain unverified. Image-only VM installation is not implemented by
-the current config loader. Full-desktop RDP and console logins can still switch
+installer run remain unverified. Image-backed mode requires a standalone disk image; backing chains are not
+supported. Full-desktop RDP and console logins can still switch
 the Windows session; the shared launch broker handles RemoteApps only.

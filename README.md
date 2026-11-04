@@ -18,7 +18,7 @@ Bring your Windows apps into your Linux workspace—with native Wayland windows,
 
 Open a Windows app from your Linux launcher. Tile it beside your Linux apps. Resize it, maximize it, and bring it back without fighting two window managers.
 
-**WinTide is our implementation of that workflow:** a reproducible setup toolkit, RemoteApp client fixes, launcher integration, and VM lifecycle tooling built on WinApps, FreeRDP, Yttrium and libvirt. The packaged installer targets an existing physical-disk Windows installation that already boots in libvirt, while keeping your Linux desktop and host GPU available.
+**WinTide is our implementation of that workflow:** a reproducible setup toolkit, RemoteApp client fixes, launcher integration, and VM lifecycle tooling built on WinApps, FreeRDP, Yttrium and libvirt. The installer targets an existing Windows installation that already boots in libvirt, on a physical disk or standalone disk image, while keeping your Linux desktop and host GPU available.
 
 ```mermaid
 flowchart LR
@@ -44,6 +44,8 @@ WinTide grew out of frustration with the WinApps + xfreerdp experience on Hyprla
 | **Correct Wayland size hints** | Remove the artificial maximum-size cap that caused resizable apps to be forced floating. No Hyprland-specific window rules. |
 | **One connection, multiple apps** | Send additional launches through the existing RAIL session, avoiding repeated login screens and reopening all windows. |
 | **Reliable RemoteApp startup** | Launch once after the RAIL handshake, fixing the observed login-image stall. |
+| **One WinTide command** | Open the Windows desktop, connect through terminal-only SSH, manage app entries, and check connectivity. |
+| **Guided setup** | Animated stage progress, private logs, checkpointed resume and explicit review before driver/VM changes. |
 | **Linux launcher integration** | Discover registered Windows executables, generate desktop entries, and provide a standalone Explorer broker. |
 | **Guarded libvirt lifecycle** | Review a generated plan, preserve the existing VM configuration, protect physical disks from simultaneous host mounting, and retain rollback state. |
 | **Shared GPU integration** | Build the pinned Yttrium QEMU/renderer stack and configure the matching Windows driver without dedicating the host GPU to passthrough. |
@@ -67,7 +69,7 @@ VM hiding, identity spoofing, custom concealment firmware and anti-cheat bypass 
 
 ## Get started
 
-Start with an existing, bootable physical-disk Windows 11 Pro/Enterprise VM in system libvirt, QEMU Guest Agent, and the [host prerequisites](docs/requirements.md). WinTide does not install Windows or guess how to repair your boot records.
+Start with an existing, bootable Windows 11 Pro/Enterprise VM in system libvirt, QEMU Guest Agent, and the [host prerequisites](docs/requirements.md). WinTide does not install Windows or guess how to repair your boot records.
 
 ```sh
 git clone https://github.com/xizha127/WinTide.git
@@ -75,11 +77,24 @@ cd WinTide
 cp examples/config.example.json local-config.json
 chmod 600 local-config.json
 # Edit local-config.json for your VM, desktop user and disks.
-./setup.sh --config local-config.json doctor
-./setup.sh --config local-config.json build
+./setup.sh --config local-config.json install --windows-user YOUR_WINDOWS_USER
 ```
 
-Then follow the [complete setup guide](docs/getting-started.md) for guest preparation, plan review, host integration and app launchers. Building alone does not configure the VM.
+The [setup guide](docs/getting-started.md) explains prerequisites, plan review and
+recovery. The wizard builds/configures the stack; it does not install Windows or
+the initial QEMU Guest Agent for you.
+
+```sh
+wintide                    # Boot if needed, then log into the Windows desktop
+wintide --ssh              # Terminal only; no RDP or app forwarding
+wintide --test             # Connectivity checks without opening windows
+wintide apps refresh       # Discover Windows apps and add desktop entries
+wintide apps list
+wintide app explorer-broker # Open an additional Explorer window
+```
+
+See the [command reference](docs/command.md) for manual entries and adopting an
+existing working deployment without reinstalling its drivers.
 
 New installations use `wintide` for commands, profiles, services and state paths,
 including `C:\ProgramData\wintide` in Windows. Existing deployments need an explicit
@@ -96,6 +111,7 @@ VirtioFS is useful for shared files, but sequential throughput did **not** trans
 
 | Guide | Covers |
 |---|---|
+| [Command reference](docs/command.md) | Desktop login, SSH, apps and diagnostics |
 | [Getting started](docs/getting-started.md) | Reproduce the supported setup |
 | [Physical disk and boot](docs/physical-disk.md) | Prepare an existing installation safely |
 | [Windows apps](docs/winapps.md) | Launchers, Explorer and SDL window handling |

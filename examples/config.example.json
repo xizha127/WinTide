@@ -4,6 +4,7 @@
   "prefix": "~/.local/opt/wintide",
   "work_dir": "~/.cache/wintide",
   "desktop_user": "CHANGE_ME",
+  "disk_mode": "physical",
   "physical_disks": [
     "/dev/disk/by-id/CHANGE_ME"
   ],
