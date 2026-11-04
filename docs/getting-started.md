@@ -66,9 +66,6 @@ Use an unprivileged desktop account for the build. Root is needed only for syste
 | Optional share service | `wintide-DOMAIN-share.service` |
 | Windows setup / rollback state | `C:\ProgramData\wintide` |
 | Windows startup backups | `C:\ProgramData\wintide\startup-TIMESTAMP` |
-| Optional Windows helper | `%ProgramData%\wintide\windowed-helper\wintide-windowed.exe` |
-| Optional Windows helper task | `WinTide-Windowed-<SID>` |
-| Windows helper logs | `%LOCALAPPDATA%\wintide` |
 
 Upstream-owned paths, such as the Windows VirtIO drivers, WinFsp, OpenSSH and
 libvirt hooks directory, retain the names their tools require. Source checkout
@@ -81,7 +78,7 @@ installer refuses detected legacy setup state rather than creating a competing
 profile or taking new rollback snapshots of an already-modified installation.
 Keep that deployment's original checkout and backups for rollback. Migrate host
 hooks, services, guest tasks, credentials and backup state together during a
-planned shutdown; do not simply rename a directory while Windows or a helper is
+planned shutdown; do not simply rename a directory while Windows or its services are
 running. An automatic migration command is not provided.
 
 ## Daily use

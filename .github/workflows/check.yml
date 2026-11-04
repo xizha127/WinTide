@@ -25,10 +25,3 @@ jobs:
             [Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$parseErrors) | Out-Null
             if ($parseErrors.Count) { $parseErrors; throw "PowerShell syntax error" }
           }
-      - name: Build and test the Windows windowed helper
-        shell: pwsh
-        run: |
-          cargo test --locked --manifest-path guest/windowed-helper/Cargo.toml
-          if ($LASTEXITCODE) { throw 'Windowed helper tests failed' }
-          cargo build --locked --release --manifest-path guest/windowed-helper/Cargo.toml
-          if ($LASTEXITCODE) { throw 'Windowed helper build failed' }

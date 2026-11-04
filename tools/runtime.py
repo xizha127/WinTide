@@ -17,17 +17,6 @@ def agent(c,command,args=None):
  q={'execute':command}
  if args is not None:q['arguments']=args
  return json.loads(v(c,'qemu-agent-command',c['domain'],json.dumps(q),'--timeout','5').stdout)['return']
-def guest_write(c,path,data):
- """Copy build output through QGA without putting a binary in a command line."""
- handle=agent(c,'guest-file-open',{'path':path,'mode':'wb'})
- try:
-  offset=0
-  while offset<len(data):
-   chunk=data[offset:offset+32768]
-   count=agent(c,'guest-file-write',{'handle':handle,'buf-b64':base64.b64encode(chunk).decode()})['count']
-   if not 0<count<=len(chunk):raise RuntimeError('Guest file write made no valid progress')
-   offset+=count
- finally:agent(c,'guest-file-close',{'handle':handle})
 def guest_ps(c,script,timeout=120,quiet=False):
  encoded=base64.b64encode(script.encode('utf-16le')).decode()
  pid=agent(c,'guest-exec',{'path':'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe','arg':['-NoProfile','-NonInteractive','-EncodedCommand',encoded],'capture-output':True})['pid']

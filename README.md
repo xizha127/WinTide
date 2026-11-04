@@ -47,7 +47,6 @@ WinTide grew out of frustration with the WinApps + xfreerdp experience on Hyprla
 | **Linux launcher integration** | Discover registered Windows executables, generate desktop entries, and provide a standalone Explorer broker. |
 | **Guarded libvirt lifecycle** | Review a generated plan, preserve the existing VM configuration, protect physical disks from simultaneous host mounting, and retain rollback state. |
 | **Shared GPU integration** | Build the pinned Yttrium QEMU/renderer stack and configure the matching Windows driver without dedicating the host GPU to passthrough. |
-| **Optional Windows startup helper** | A small Rust/windows-rs helper restores newly shown maximized windows in the interactive RDP session. The SDL fix handles the cross-desktop state problem. |
 | **Optional VirtioFS permission guard** | Allow content writes while preventing guest ACL translation from stripping Linux access permissions. |
 
 Read the [implementation details](docs/fixes.md) and [launcher behavior](docs/winapps.md).
@@ -99,7 +98,7 @@ VirtioFS is useful for shared files, but sequential throughput did **not** trans
 |---|---|
 | [Getting started](docs/getting-started.md) | Reproduce the supported setup |
 | [Physical disk and boot](docs/physical-disk.md) | Prepare an existing installation safely |
-| [Windows apps](docs/winapps.md) | Launchers, Explorer, SDL and the optional helper |
+| [Windows apps](docs/winapps.md) | Launchers, Explorer and SDL window handling |
 | [Fixes](docs/fixes.md) | Our client and renderer changes |
 | [Performance](docs/performance.md) | CPU placement, startup load and bottlenecks |
 | [Validation](docs/validation.md) | Evidence, checks and remaining limits |
@@ -117,6 +116,5 @@ WinTide's implementations stand on substantial upstream work:
 - **[arehnman / Yttrium](https://github.com/arehnman/yttrium-virtio-gpu)** — the Windows GPU driver and matching [QEMU](https://github.com/arehnman/yttrium-qemu), [renderer](https://github.com/arehnman/virglrenderer) and [Mesa integration](https://github.com/arehnman/virtio-win-mesa).
 - **[QEMU](https://www.qemu.org/)**, **[KVM](https://linux-kvm.org/)**, **[libvirt](https://libvirt.org/)**, **[Mesa/Venus](https://www.mesa3d.org/)** and **[virglrenderer](https://gitlab.freedesktop.org/virgl/virglrenderer)** — virtualization and shared graphics infrastructure.
 - **[VirtIO-Win](https://github.com/virtio-win/kvm-guest-drivers-windows)**, **[VirtioFS](https://virtio-fs.gitlab.io/)** and **[WinFsp](https://github.com/winfsp/winfsp)** — guest integration and optional file sharing.
-- **[Microsoft windows-rs](https://github.com/microsoft/windows-rs)** — Windows API bindings for our Rust helper.
 
 See [full attribution and license details](THIRD_PARTY.md), including firmware, console and TPM components. WinTide is an independent integration project, not an official product or endorsement from these projects.

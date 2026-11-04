@@ -1,6 +1,6 @@
 # Credits and licenses
 
-The underlying virtualization, graphics and Windows integration were built by the projects below. WinTide implements the setup and lifecycle tooling, SDL RemoteApp state/resize fixes, launcher integration, optional Windows helper, and host-permission policy. It does not claim authorship of their implementations.
+The underlying virtualization, graphics and Windows integration were built by the projects below. WinTide implements the setup and lifecycle tooling, SDL RemoteApp state/resize fixes, launcher integration, and host-permission policy. It does not claim authorship of their implementations.
 
 | Project / people | Contribution to this setup | License/source |
 |---|---|---|
@@ -13,7 +13,6 @@ The underlying virtualization, graphics and Windows integration were built by th
 | [SDL contributors](https://libsdl.org/) | Native Linux/Wayland client windows | zlib |
 | [libvirt](https://libvirt.org/) and Linux [KVM](https://linux-kvm.org/) | VM lifecycle, device isolation, guest-agent transport, virtualization | See respective LGPL/GPL component licenses |
 | [VirtIO-Win](https://github.com/virtio-win/kvm-guest-drivers-windows) | Windows VirtIO drivers and QEMU Guest Agent ecosystem | See individual driver licenses |
-| [Microsoft windows-rs contributors](https://github.com/microsoft/windows-rs) | `windows-sys` and `windows-link` API bindings used by the optional windowed-startup helper | MIT or Apache-2.0; versions/checksums in the helper's Cargo.lock |
 | [VirtioFS / virtiofsd contributors](https://virtio-fs.gitlab.io/) | Shared host filesystem exposed to Windows | virtiofsd Apache-2.0/BSD-3-Clause; see upstream |
 | [WinFsp / Bill Zissimopoulos and contributors](https://github.com/winfsp/winfsp) | Windows user-mode filesystem framework used by VirtioFS | See upstream GPL/commercial licensing |
 | [EDK II](https://github.com/tianocore/edk2), [SPICE](https://www.spice-space.org/), [swtpm](https://github.com/stefanberger/swtpm) | UEFI firmware, original console/agent stack and virtual TPM | See upstream component licenses |

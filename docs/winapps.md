@@ -57,13 +57,8 @@ geometry path. Remembered startup maximization is normalized through RAIL;
 later native maximize requests act on the local SDL surface. There is no
 Hyprland-specific float/tile rule. See [the SDL fixes](fixes.md).
 
-The optional helper also handles Windows-side startup policy, but is not
-a substitute for the SDL fix. Its standalone manual-maximize test expectations
-apply without SDL's remote-window normalization.
-
-Build, installation, removal and standalone test instructions are in the
-[optional Windows helper guide](windowed-helper.md). It is not required by the
-current SDL resize/maximize implementation.
+Window-state handling runs in the SDL client; no separate Windows startup helper
+is required. The former helper has been retired.
 
 ## Diagnose a launch without resetting the setup
 

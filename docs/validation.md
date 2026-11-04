@@ -20,6 +20,12 @@ or added files compared exactly with the tested build source. The running and
 installed executables were also compared. These checks do not guarantee behavior
 for every app, compositor, DPI configuration or reconnect scenario.
 
+The Windows startup helper was disabled and its process stopped on 2026-11-04.
+A fresh Explorer launch opened tiled through the patched SDL client, and the user
+confirmed the behavior still worked without the helper. It has been retired;
+window-state handling is provided by the SDL patch. This retirement check was
+interactive, not a new automated geometry/maximize regression run.
+
 ## Other component checks
 
 - **Physical boot:** Windows booted and accepted sign-in from its existing raw
@@ -30,12 +36,6 @@ for every app, compositor, DPI configuration or reconnect scenario.
 - **Storage:** optional VirtioFS read/write and the permission guard passed live
   checks. Steam compatibility did not; the current game disk is Windows-owned
   NTFS. See [storage observations](sharing.md).
-- **Optional helper:** four Rust policy tests and Windows cross-compilation with
-  Clippy passed. Earlier standalone interactive checks verified startup restoration,
-  deduplication and fullscreen exclusion. Those checks predate SDL's window-state
-  policy; the manual-native-maximize assertions are not a valid test through the
-  current RemoteApp client. See [helper scope](windowed-helper.md).
-
 ## Repository checks
 
 From the repository root:
@@ -44,14 +44,12 @@ From the repository root:
 python3 -m unittest discover -s tests -v
 python3 tools/check-publication.py
 bash -n setup.sh
-cargo test --locked --manifest-path guest/windowed-helper/Cargo.toml
 ```
 
 The publication checker examines the Git index, so stage the intended changes
 before using it as a pre-push check. It does not scan ignored local files.
 The Python suite checks XML preservation/refusals, disk lifecycle, generated
-launchers, permission policy and guest file-copy handling. CI also parses guest
-PowerShell and builds/tests the optional Windows helper. Passing these checks
+launchers and permission policy. CI also parses guest PowerShell. Passing these checks
 is not evidence that the complete installer has run on another machine.
 
 For the Linux launch broker, use FreeRDP development headers and the patched
@@ -65,7 +63,8 @@ c++ -std=c++17 -Wall -Wextra -Werror -Wno-deprecated-declarations \
 /tmp/wintide-rail-launch-test
 ```
 
-Build the GPU smoke test separately:
+The GPU smoke test is a manual diagnostic for checking graphics after driver or
+renderer changes. Setup does not build or run it. Build it separately:
 
 ```sh
 x86_64-w64-mingw32-gcc -O2 tools/gpu-smoke.c -o gpu-smoke.exe -ld3d11 -ldxgi -ldxguid

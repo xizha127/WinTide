@@ -28,6 +28,4 @@ Do not use placeholder disks to bypass validation for an image-only VM.
 
 The Linux SDL launch broker needs the desktop session's `XDG_RUNTIME_DIR`, owned
 by that user with no group/other access. Launch from the desktop user's session;
-a root shell is not an equivalent client environment. The optional Windows
-helper additionally needs the Rust Windows target and MinGW, as described in
-[its guide](windowed-helper.md). The default setup does not build that helper.
+a root shell is not an equivalent client environment.

@@ -15,8 +15,8 @@ experimenting with libvirt CPU pinning, and leave resources for Linux.
 `guest/Optimize-Startup.ps1` is optional and defaults to Preview. It lists registry
 Run entries, Startup files and non-Microsoft logon/boot tasks; Apply backs them up
 and disables selected entries. Its exclusions are name/path patterns, not a
-complete inventory of essential software. In particular, review WinTide helper
-and other custom tasks before applying it. It does not change services or stop
+complete inventory of essential software. Review custom tasks before applying
+it. It does not change services or stop
 running processes. This tool is not part of the normal installer.
 
 ## Storage

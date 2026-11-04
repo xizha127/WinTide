@@ -8,10 +8,7 @@ sudo ./setup.sh --config local-config.json rollback-host
 
 This defines the saved `/var/lib/wintide/DOMAIN/domain.before.xml`, retaining the original disk, CPU, graphics, TPM and firmware configuration. Boot with that console and run `guest/Restore-Graphics.ps1` elevated inside Windows. It discovers the installed Yttrium OEM driver dynamically; no machine-specific oemNNN.inf number is embedded. Reboot after restoration. Native Windows files/certificates were changed by driver installation too; the host XML rollback alone is not sufficient to undo those changes.
 
-The optional Windows startup helper is separate from graphics rollback. Remove
-it with `remove-windowed-helper --windows-user USER` while the guest agent is
-available; see [helper removal](windowed-helper.md). Host XML rollback does not
-remove generated launchers or revert all RDP policy changes.
+Host XML rollback does not remove generated launchers or revert all RDP policy changes.
 
 To remove host integration after recovery, stop the per-domain share service and remove only this installation's files:
 
