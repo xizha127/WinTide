@@ -25,6 +25,30 @@ The patched client is the SDL3 `sdl-freerdp` built from FreeRDP3.32.2, not a dif
 
 A full RDP desktop/RemoteApp session can disconnect the local VM console session. Avoid RDP validation while someone is using the Windows console. Game streaming and RDP are separate latency/compatibility questions; shared GPU acceleration does not guarantee low-latency delivery through RDP.
 
+## Launch additional apps without reconnecting
+
+The installed wrapper exports `WINTIDE_SESSION_REUSE=1`. On Linux, the patched
+SDL client reuses an existing RemoteApp connection for the same server, port,
+Windows user and domain. A subsequent invocation parses its usual `/app:` options
+and forwards the program, working directory and arguments as another RAIL EXEC
+request. It does not start a second RDP login or recreate existing windows.
+
+The endpoint lives in the user's private `XDG_RUNTIME_DIR`, with owner-only socket
+and lock permissions, peer UID verification, and a lock to serialize simultaneous
+first launches. A failed handoff fails closed rather than opening a competing
+connection. The acknowledgement means the RAIL request was submitted; Windows can
+still reject a program, which is recorded in the owner's client log. A rejected
+additional app does not terminate the existing session.
+
+The first connection owns display options, redirected drives, audio and the
+compositor app class. Later launches reuse those resources, so individual app-class
+icon grouping is not preserved and a later `/drive:` option cannot add a new drive.
+The existing Explorer broker reuses a folder window if one is already open.
+Full-desktop launches remain separate and can still replace a RemoteApp session.
+After upgrading an already-running older client, reconnect once to activate reuse.
+For an existing installation, set the environment variable in its launcher wrapper;
+no Windows session-policy changes are required.
+
 ## Windowed application startup
 
 The patched SDL Wayland client keeps ordinary RemoteApp HWNDs restored inside

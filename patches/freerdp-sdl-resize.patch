@@ -17,10 +17,52 @@ diff --git a/client/SDL/SDL3/sdl_context.cpp b/client/SDL/SDL3/sdl_context.cpp
  					return true;
  				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
  					/* Send SC_CLOSE, don't abort the session. */
+diff --git a/client/SDL/SDL3/sdl_freerdp.cpp b/client/SDL/SDL3/sdl_freerdp.cpp
+--- a/client/SDL/SDL3/sdl_freerdp.cpp
++++ b/client/SDL/SDL3/sdl_freerdp.cpp
+@@ -78,6 +78,7 @@
+ #include "sdl_win32_console.hpp"
+ #endif
+ #include "sdl_utils.hpp"
++#include "sdl_rail_launch.hpp"
+ 
+ #if defined(_WIN32)
+ #define SDL_TAG CLIENT_TAG("SDL")
+@@ -168,7 +169,7 @@
+ 		while (!sdl->shallAbort())
+ 		{
+ 			SDL_Event windowEvent = {};
+-			while (!sdl->shallAbort() && SDL_WaitEventTimeout(nullptr, 1000))
++			while (!sdl->shallAbort() && (SdlRail::pollLaunches(sdl->context()), SDL_WaitEventTimeout(nullptr, 100)))
+ 			{
+ 				/* Only poll standard SDL events and SDL_EVENT_USERS meant to create
+ 				 * dialogs. do not process the dialog return value events here.
+@@ -664,6 +665,13 @@
+ 		return rc;
+ 	}
+ 
++	const int reused = SdlRailLaunch::instance().prepare(settings);
++	if (reused != 0)
++	{
++		if (reused < 0) std::cerr << "WinTide: existing RemoteApp connection unavailable; refusing a competing login.\n";
++		return reused > 0 ? 0 : 1;
++	}
++
+ 	if (!SDL_SetHint(SDL_HINT_ALLOW_ALT_TAB_WHILE_GRABBED, "0"))
+ 		return -1;
+ 	if (!SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0"))
 diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
 --- a/client/SDL/SDL3/sdl_rail.cpp
 +++ b/client/SDL/SDL3/sdl_rail.cpp
-@@ -212,12 +212,37 @@
+@@ -32,6 +32,7 @@
+ #include <freerdp/client/rail.h>
+ 
+ #include "sdl_rail.hpp"
++#include "sdl_rail_launch.hpp"
+ #include "sdl_context.hpp"
+ #include "sdl_rail_platform.hpp"
+ #include "sdl_types.hpp"
+@@ -212,12 +213,37 @@
  		_sentWorkArea = area;
  }
  
@@ -59,7 +101,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  	/* Skip the echo of reconcile's own SDL_MaximizeWindow (railMaximized already set). */
  	if (appWindow->railMaximized())
  	{
-@@ -270,12 +295,24 @@
+@@ -270,12 +296,24 @@
  	sendSystemCommand(appWindow, SC_CLOSE);
  }
  
@@ -85,7 +127,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  	/* Resolve which state a RESTORED event ends; both clear = echo of our own restore, skip. */
  	if (appWindow->railMinimized())
  		appWindow->setRailMinimized(false);
-@@ -692,7 +729,22 @@
+@@ -692,7 +730,22 @@
  	/* ServerSystemParam not implemented: the server only sends screensaver state here. */
  	rail->ServerLocalMoveSize = SdlRail::server_local_move_size;
  	rail->ServerMinMaxInfo = SdlRail::server_min_max_info;
@@ -109,7 +151,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  
  	WLog_WARN(TAG, "RemoteApp/RAIL support in the SDL client is experimental");
  	const RailPlatformCaps& caps = railPlatformCaps();
-@@ -715,6 +767,7 @@
+@@ -715,6 +768,7 @@
  	 * late order in a release build. _enabled gates them instead. */
  	std::unique_lock lock(_windowsLock);
  	_refreshSent = false;
@@ -117,7 +159,18 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  	/* Reset session and move state on reconnect. */
  	_localMove = {};
  	_sessionMargins = {};
-@@ -1159,8 +1212,8 @@
+@@ -767,7 +821,9 @@
+ 	{
+ 		WLog_ERR(TAG, "RAIL exec error: execResult=0x%04" PRIx16 " rawResult=0x%08" PRIx32,
+ 		         execResult->execResult, execResult->rawResult);
+-		freerdp_abort_connect_context(rail->_context->context());
++		/* A failed additional app must not disconnect already-open apps. */
++		if (!rail->_enabled)
++			freerdp_abort_connect_context(rail->_context->context());
+ 	}
+ 	else
+ 	{
+@@ -1159,8 +1215,8 @@
  	/* Drop transient echo events while client geometry application is in flight. */
  	if (w->geomApplyPending())
  	{
@@ -128,7 +181,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  		if (!overtaken)
  			return;
  		w->clearGeomApplyPending();
-@@ -1433,6 +1486,16 @@
+@@ -1433,6 +1489,16 @@
  	switch (state->showState)
  	{
  		case WINDOW_SHOW_MAXIMIZED:
@@ -145,7 +198,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  			appWindow->setServerMaximized(true);
  			appWindow->setServerMinimized(false);
  			break;
-@@ -1440,6 +1503,7 @@
+@@ -1440,6 +1506,7 @@
  			appWindow->setServerMinimized(true);
  			break;
  		case WINDOW_SHOW:
@@ -153,7 +206,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  			appWindow->setServerMaximized(false);
  			appWindow->setServerMinimized(false);
  			break;
-@@ -1539,7 +1603,7 @@
+@@ -1539,7 +1606,7 @@
  	}
  
  	if (fieldFlags & WINDOW_ORDER_FIELD_SHOW)
@@ -162,7 +215,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  
  	if (fieldFlags & WINDOW_ORDER_FIELD_VIS_OFFSET)
  	{
-@@ -1684,7 +1748,7 @@
+@@ -1684,7 +1751,7 @@
  		rail->enableRemoteAppMode(true);
  		const char* app =
  		    freerdp_settings_get_string(context->settings, FreeRDP_RemoteApplicationProgram);
@@ -171,6 +224,19 @@ diff --git a/client/SDL/SDL3/sdl_rail.cpp b/client/SDL/SDL3/sdl_rail.cpp
  		{
  			WLog_DBG(TAG, "RAIL mode enabled (monitored desktop); launching '%s'", app);
  			if (client_rail_server_start_cmd(rail->_rail) != CHANNEL_RC_OK)
+@@ -1733,3 +1800,12 @@
+ 	}
+ 	return TRUE;
+ }
++
++void SdlRail::pollLaunches(rdpContext* context)
++{
++	auto* rail = get(context);
++	if (!rail) return;
++	std::unique_lock lock(rail->_windowsLock);
++	if (rail->_enabled && rail->_launchSent && rail->_rail)
++		SdlRailLaunch::instance().pollLaunch(rail->_rail);
++}
 diff --git a/client/SDL/SDL3/sdl_rail.hpp b/client/SDL/SDL3/sdl_rail.hpp
 --- a/client/SDL/SDL3/sdl_rail.hpp
 +++ b/client/SDL/SDL3/sdl_rail.hpp
@@ -186,7 +252,16 @@ diff --git a/client/SDL/SDL3/sdl_rail.hpp b/client/SDL/SDL3/sdl_rail.hpp
  	void handleClose(SDL_WindowID id);
  	/* Local focus change: send ClientActivate, like xf FocusIn/FocusOut. */
  	void handleFocus(SDL_WindowID id, bool gained);
-@@ -165,7 +165,7 @@
+@@ -118,6 +118,8 @@
+ 	void noteResizeGrab(SDL_WindowID id);
+ 	/* Handle Wayland resize event. */
+ 	void handleWaylandResize(SDL_WindowID id);
++
++	static void pollLaunches(rdpContext* context);
+ 
+   private:
+ 	/* _windows helpers: callers must hold _windowsLock. */
+@@ -165,7 +167,7 @@
  	/* window_common field handlers (split out for readability). */
  	void updateMargins(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
  	                   const WINDOW_STATE_ORDER* state);
@@ -195,7 +270,7 @@ diff --git a/client/SDL/SDL3/sdl_rail.hpp b/client/SDL/SDL3/sdl_rail.hpp
  	                            const WINDOW_STATE_ORDER* state);
  	static void updateVisRects(SdlRailWindow* appWindow, const WINDOW_ORDER_INFO* orderInfo,
  	                           const WINDOW_STATE_ORDER* state);
-@@ -195,6 +195,7 @@
+@@ -195,6 +197,7 @@
  	RailClientContext* _rail = nullptr;
  	/* Written on the RDP thread (RemoteApp mode toggles), read lock-free on the main thread. */
  	std::atomic<bool> _enabled = false;
@@ -436,4 +511,136 @@ new file mode 100644
 +
 +  private:
 +	uint64_t _through = 0;
++};
+diff --git a/client/SDL/SDL3/sdl_rail_launch.hpp b/client/SDL/SDL3/sdl_rail_launch.hpp
+new file mode 100644
+--- /dev/null
++++ b/client/SDL/SDL3/sdl_rail_launch.hpp
+@@ -0,0 +1,127 @@
++/* SPDX-License-Identifier: Apache-2.0
++ * WinTide: same-user RemoteApp launch forwarding over the existing RAIL channel.
++ */
++#pragma once
++#include <freerdp/settings.h>
++#include <freerdp/client/rail.h>
++#include <array>
++#include <string>
++#include <cstdlib>
++#include <cstring>
++#if defined(__linux__)
++#include <sys/socket.h>
++#include <sys/un.h>
++#include <sys/file.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <poll.h>
++#include <chrono>
++#include <thread>
++#endif
++
++class SdlRailLaunch
++{
++ public:
++  static SdlRailLaunch& instance() { static SdlRailLaunch broker; return broker; }
++  /* 0: own/new connection, 1: forwarded successfully, -1: fail closed. */
++  int prepare(const rdpSettings* settings)
++  {
++#if defined(__linux__)
++    const char* enabled = std::getenv("WINTIDE_SESSION_REUSE");
++    if (!enabled || std::strcmp(enabled, "1") ||
++        !freerdp_settings_get_bool(settings, FreeRDP_RemoteApplicationMode)) return 0;
++    const char* runtime = std::getenv("XDG_RUNTIME_DIR");
++    struct stat st{};
++    if (!runtime || lstat(runtime, &st) || !S_ISDIR(st.st_mode) ||
++        st.st_uid != getuid() || (st.st_mode & 0077)) return -1;
++    auto str = [settings](auto key) { const auto p = freerdp_settings_get_string(settings,key); return std::string(p ? p : ""); };
++    identity = str(FreeRDP_ServerHostname) + '\n' + std::to_string(freerdp_settings_get_uint32(settings, FreeRDP_ServerPort)) + '\n' + str(FreeRDP_Username) + '\n' + str(FreeRDP_Domain);
++    uint64_t hash = 14695981039346656037ULL;
++    for (unsigned char c : identity) { hash ^= c; hash *= 1099511628211ULL; }
++    path = std::string(runtime) + "/wintide-rail-" + std::to_string(hash) + ".sock";
++    sockaddr_un addr{}; addr.sun_family = AF_UNIX;
++    if (path.size() >= sizeof(addr.sun_path)) return -1;
++    std::memcpy(addr.sun_path,path.c_str(),path.size()+1);
++    lockfd = open((path+".lock").c_str(),O_CREAT|O_RDWR|O_CLOEXEC|O_NOFOLLOW,0600);
++    if (lockfd < 0 || fstat(lockfd,&st) || !S_ISREG(st.st_mode) || st.st_uid != getuid() || (st.st_mode & 0077)) return -1;
++    if (flock(lockfd,LOCK_EX|LOCK_NB) == 0)
++    {
++      owner = true;
++      unlink(path.c_str());
++      listener = socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC|SOCK_NONBLOCK,0);
++      if (listener < 0 || bind(listener,reinterpret_cast<sockaddr*>(&addr),sizeof(addr)) || chmod(path.c_str(),0600) || listen(listener,16)) return -1;
++      return 0;
++    }
++    if (errno != EWOULDBLOCK) return -1;
++    const std::string message = identity + '\0' + str(FreeRDP_RemoteApplicationProgram) + '\0' + str(FreeRDP_RemoteApplicationWorkingDir) + '\0' + str(FreeRDP_RemoteApplicationCmdLine) + '\0';
++    if (message.size() > 65536) return -1;
++    int fd = -1;
++    for (int i=0;i<100;i++)
++    {
++      fd = socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0);
++      if (fd < 0) return -1;
++      if (!connect(fd,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))) break;
++      close(fd); fd=-1;
++      std::this_thread::sleep_for(std::chrono::milliseconds(100));
++    }
++    if (fd < 0) return -1;
++    const auto sent = send(fd,message.data(),message.size(),MSG_NOSIGNAL);
++    pollfd pfd{fd,POLLIN,0}; char reply=0;
++    const bool ok = sent == static_cast<ssize_t>(message.size()) && poll(&pfd,1,60000)>0 && recv(fd,&reply,1,0)==1 && reply==1;
++    close(fd);
++    return ok ? 1 : -1;
++#else
++    (void)settings; return 0;
++#endif
++  }
++  void pollLaunch(RailClientContext* rail)
++  {
++#if defined(__linux__)
++    if (listener < 0 || !rail) return;
++    const int fd = accept4(listener,nullptr,nullptr,SOCK_CLOEXEC|SOCK_NONBLOCK);
++    if (fd < 0) return;
++    ucred cred{}; socklen_t len=sizeof(cred);
++    char reply=0;
++    pollfd pfd{fd,POLLIN,0};
++    if (!getsockopt(fd,SOL_SOCKET,SO_PEERCRED,&cred,&len) && cred.uid==getuid() && poll(&pfd,1,100)>0)
++    {
++      std::array<char,65537> buffer{};
++      const auto size=recv(fd,buffer.data(),buffer.size(),MSG_TRUNC);
++      if (size>0 && size<=65536 && buffer[static_cast<size_t>(size)-1]=='\0')
++      {
++        std::array<std::string,4> fields; size_t pos=0; bool valid=true;
++        for (auto& field:fields)
++        {
++          if (pos>=static_cast<size_t>(size)) { valid=false; break; }
++          field=buffer.data()+pos; pos+=field.size()+1;
++        }
++        if (valid && pos==static_cast<size_t>(size) && fields[0]==identity && !fields[1].empty())
++        {
++          RAIL_EXEC_ORDER exec{};
++          exec.flags=RAIL_EXEC_FLAG_EXPAND_WORKING_DIRECTORY|RAIL_EXEC_FLAG_EXPAND_ARGUMENTS;
++          exec.RemoteApplicationProgram=fields[1].c_str();
++          exec.RemoteApplicationWorkingDir=fields[2].c_str();
++          exec.RemoteApplicationArguments=fields[3].c_str();
++          if (rail->ClientExecute(rail,&exec)==CHANNEL_RC_OK) reply=1;
++        }
++      }
++    }
++    (void)send(fd,&reply,1,MSG_NOSIGNAL); close(fd);
++#else
++    (void)rail;
++#endif
++  }
++  ~SdlRailLaunch()
++  {
++#if defined(__linux__)
++    if (listener>=0) close(listener);
++    if (owner) unlink(path.c_str());
++    if (lockfd>=0) close(lockfd);
++#endif
++  }
++ private:
++  std::string identity,path;
++  int lockfd=-1,listener=-1;
++  bool owner=false;
 +};

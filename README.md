@@ -42,6 +42,7 @@ WinTide grew out of frustration with the WinApps + xfreerdp experience on Hyprla
 |---|---|
 | **SDL window-state and resize fixes** | Keep the remote Windows window restored while the local compositor controls its size. Settings and Explorer open tiled; maximize/restore and resizing work without repeated toggles. |
 | **Correct Wayland size hints** | Remove the artificial maximum-size cap that caused resizable apps to be forced floating. No Hyprland-specific window rules. |
+| **One connection, multiple apps** | Send additional launches through the existing RAIL session, avoiding repeated login screens and reopening all windows. |
 | **Reliable RemoteApp startup** | Launch once after the RAIL handshake, fixing the observed login-image stall. |
 | **Linux launcher integration** | Discover registered Windows executables, generate desktop entries, and provide a standalone Explorer broker. |
 | **Guarded libvirt lifecycle** | Review a generated plan, preserve the existing VM configuration, protect physical disks from simultaneous host mounting, and retain rollback state. |

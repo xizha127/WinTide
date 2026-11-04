@@ -282,7 +282,7 @@ def install_client(c,args):
  s={'RDP_USER':args.windows_user,'RDP_DOMAIN':'','RDP_IP':'','VM_NAME':c['domain'],'WAFLAVOR':'libvirt','FREERDP_COMMAND':c['prefix']+'/freerdp/bin/sdl-freerdp','RDP_ASKPASS':str(ask),'RDP_FLAGS':'/cert:tofu /wm-class:winapps +home-drive','RDP_FLAGS_NON_WINDOWS':'/wm-class:winapps /gdi:sw -decorations +dynamic-resolution','RDP_FLAGS_WINDOWS':'/wm-class:winapps -decorations /dynamic-resolution','DEBUG':'false','AUTOPAUSE':'off'}
  write(profile,'\n'.join(k+'='+shlex.quote(value) for k,value in s.items())+'\n',0o600)
  binpath=pathlib.Path(c['home'])/'.local/bin/winapps-yttrium'
- write(binpath,'#!/bin/sh\nexport LIBVIRT_DEFAULT_URI=qemu:///system\nexec '+shlex.quote(str(base/'winapps-core'))+' "$@"\n',0o755)
+ write(binpath,'#!/bin/sh\nexport LIBVIRT_DEFAULT_URI=qemu:///system\nexport WINTIDE_SESSION_REUSE=1\nexec '+shlex.quote(str(base/'winapps-core'))+' "$@"\n',0o755)
  # App metadata is generated independently from installed registrations by discover.
  (base/'apps').mkdir(exist_ok=True)
  broker=base/'apps/explorer-broker';broker.mkdir(exist_ok=True)

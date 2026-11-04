@@ -110,6 +110,7 @@ class ClientTests(unittest.TestCase):
    with patch.object(setup.os,'getuid',return_value=1000),patch.object(setup,'run',return_value=subprocess.CompletedProcess([],0,setup.LOCK['winapps']['commit'],'')),patch.object(setup.getpass,'getpass',return_value='test-only-fixture'):
     setup.install_client(c,SimpleNamespace(windows_user='example-user'))
     setup.launchers(c)
+   self.assertIn('export WINTIDE_SESSION_REUSE=1', (home/'.local/bin/winapps-yttrium').read_text())
    profile=home/'.config/winapps-yttrium/profile.conf'
    self.assertEqual(profile.stat().st_mode & 0o777,0o600)
    self.assertNotIn('test-only-fixture',profile.read_text())

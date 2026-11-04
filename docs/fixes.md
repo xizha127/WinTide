@@ -15,6 +15,8 @@ Upstream: [FreeRDP](https://github.com/FreeRDP/FreeRDP). Separate fork: [xizha12
 5. Leave the maximum size of resizable Wayland application surfaces unconstrained. Windows max-track sizes and a locally imposed usable-area cap advertised a maximum smaller than the compositor's tile. Hyprland's layout consequently floated those windows. This is an SDL size-hint correction, with no compositor rules.
 6. Coalesce state while hidden and distinguish queued SDL acknowledgements from new local state changes using a per-window timestamp barrier.
 
+7. Reuse one Linux SDL RemoteApp connection per server/account through a private local launch socket. Additional RAIL EXEC requests launch apps without repeating login or recreating existing windows. App launch rejection no longer aborts an already-active session.
+
 Interactive validation: earlier floating sizes of client1200x800, 900x600 and1100x750 matched the Windows client plus frame margins. With the current patch, Settings and Explorer both opened tiled without floating rules. Settings's local844x1380 allocation matched its restored native858x1387 rectangle. Native maximize followed by restore returned to a responsive tile; the user confirmed both tiling and maximization were fixed. Checks used the actual patched process, then installed that identical executable. Other compositors, applications, DPI configurations and extended stability remain unverified.
 
 ## Venus render-server child under libvirt

@@ -34,3 +34,25 @@ x86_64-w64-mingw32-gcc -O2 tools/gpu-smoke.c -o gpu-smoke.exe -ld3d11 -ldxgi -ld
 Copy it into the guest and run it. It requests `D3D_DRIVER_TYPE_HARDWARE`, identifies the DXGI adapter, creates a GPU render target, clears red, copies to a staging texture, and checks exact RGBA255,0,0,255. `PASS` is stronger evidence than a device appearing in Task Manager. Match guest activity to host renderer worker processes with `nvidia-smi`. The executable is generated locally and ignored by Git.
 
 Not established: D3D12 capability, any specific game's performance, anti-cheat compatibility, DirectStorage behavior, loading-time parity, extended stability, automatic attachment after a real VM restart on a second machine, or support for other GPU vendors. Do not market those as verified features.
+
+## RemoteApp connection reuse
+
+Repeated launches of the installed Explorer broker and a manual Notepad launch
+were acknowledged over a single connection: one RDP handshake, one persistent
+client PID, and unchanged existing window identities. Existing windows remained
+tiled. A deliberately nonexistent executable returned a Windows RAIL error
+without disconnecting the session; a subsequent Explorer launch still succeeded. `tests/rail-launch.cpp` covers concurrent launch forwarding, exact quoted
+Unicode arguments, Windows-account separation, owner cleanup and rejection of an
+insecure runtime directory. On Linux with FreeRDP development headers, compile it
+against the patched source:
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -I /path/to/patched-freerdp/client/SDL/SDL3 \
+  $(pkg-config --cflags freerdp-client3) tests/rail-launch.cpp \
+  -o /tmp/wintide-rail-launch-test $(pkg-config --libs freerdp-client3)
+/tmp/wintide-rail-launch-test
+```
+
+The launch socket is opt-in and Linux-only. Full-desktop session switching and
+per-app redirection changes are not part of this behavior.
